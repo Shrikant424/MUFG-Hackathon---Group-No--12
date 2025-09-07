@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from typing import List, Dict, Any
 from openai import OpenAI  # or the DeepSeek client
 from LLM.LLM1 import callLLM1
+from LLM.LLM2 import callLLM2
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
@@ -14,8 +15,10 @@ app.add_middleware(
     allow_methods=["*"],   # allow POST, GET, OPTIONS etc.
     allow_headers=["*"],
 )
+
 class ChatMessage(BaseModel):
     message: str
+    userData: dict = {}
 
 # class ChatRequest(BaseModel):
 #     conversation: List[ChatMessage]
@@ -41,12 +44,23 @@ class ChatMessage(BaseModel):
 #     return messages
 
 
+
 @app.post("/chat")
 def chat(request: ChatMessage):
-    response = callLLM1(request.message)
+    # If user asks for profile or to show data, return userData directly
+    msg = request.message.lower().strip()
+    if msg in ["profile", "show my data", "show my profile"]:
+        if request.userData:
+            profile_str = "\n".join([f"{k}: {v}" for k, v in request.userData.items()])
+            return {"reply": f"Your profile:\n{profile_str}"}
+        else:
+            return {"reply": "No user profile data found."}
+    # Otherwise, pass userData to LLM1 if needed
+    response = callLLM1(request.message, request.userData)
     return {"reply": response}
 
+
 @app.post("/explain")
-def chat(request: ChatMessage):
-    response = callLLM2(request.message)
+def explain(request: ChatMessage):
+    response = callLLM2(request.message, request.userData)
     return {"reply": response}

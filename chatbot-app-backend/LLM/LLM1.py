@@ -1,13 +1,16 @@
+import os
 from pandas import read_csv
 
 
-db = read_csv(r"C:\Users\DELL\Downloads\Hackathon_Dataset.csv")
+db = read_csv(r"C:\mydata\MUFG\Hackathon_Dataset.csv")
 conversation_history = []
 
 prompt = f"""
     You are a financial assistant specializing in retirement and superannuation planning.
     Always base your responses on the structured dataset provided below.
     Do NOT use your own system location, and do NOT invent real-time market data or prices.
+    "You MUST use the dataset below to answer all questions. If the answer is not in the dataset, ask the user for clarification or say you cannot answer."
+
 
     Dataset (from CSV):
     {db}    
@@ -57,19 +60,31 @@ prompt = f"""
     Format your answer with Markdown headings, bullet points, and blank lines between paragraphs.
 
     """
+from dotenv import load_dotenv
+load_dotenv()
 
 
-def callLLM1(userMessage:str):
+def callLLM1(userMessage: str, userData: dict):
     from openai import OpenAI
 
     client = OpenAI(
         base_url="https://openrouter.ai/api/v1",
-        api_key="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",
+        api_key="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",
     )
+
+    # Format user profile for prompt
+    if userData:
+        user_profile_str = "\\n".join([f"{k}: {v}" for k, v in userData.items()])
+        user_profile_section = f"\\n\\nUser Profile:\\n{user_profile_str}\\n"
+    else:
+        user_profile_section = "\\n\\nUser Profile: (not provided)\\n"
+
+    # Add user profile to the system prompt
+    full_prompt = prompt + user_profile_section
 
     conversation_history.append({"role": "user", "content": userMessage})
 
-    messages = [{"role": "system", "content": prompt}]
+    messages = [{"role": "system", "content": full_prompt}]
     messages.extend(conversation_history[-10:])
 
     response = client.chat.completions.create(
@@ -79,6 +94,6 @@ def callLLM1(userMessage:str):
 
     assistant_reply = response.choices[0].message.content
     conversation_history.append({"role": "assistant", "content": assistant_reply})
-    
+
     print("Response generated")
     return assistant_reply
