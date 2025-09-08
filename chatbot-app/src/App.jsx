@@ -8,21 +8,22 @@ import "react-chatbot-kit/build/main.css";
 import getConfig from "./chatbot/Config";
 import MessageParser from "./chatbot/MessageParser";
 import ActionProvider from "./chatbot/ActionProvider";
+
 function App() {
   const [formData, setFormData] = useState(null);
+  
   return (
     <div className="App">
       {!formData ? (
         <UserDataForm setFormData={setFormData} />
       ) : (
-          <div className="chatbot-wrapper">
-            <Chatbot
-              config={getConfig(formData)}
-              messageParser={MessageParser}
-              actionProvider={ActionProvider}
-            />
-          </div>
-
+        <div className="chatbot-wrapper">
+          <Chatbot
+            config={getConfig(formData)}
+            messageParser={MessageParser}
+            actionProvider={ActionProvider}
+          />
+        </div>
       )}
     </div>
   );

@@ -24,6 +24,55 @@ class ActionProvider {
     }));
   }
 
+  async handleStockPrediction(stockSymbol, years = 2) {
+    // Add loading message
+    this.setState((prev) => ({
+      ...prev,
+      messages: [...prev.messages, this.createChatBotMessage(`📈 Analyzing ${stockSymbol} stock... This may take a moment.`)],
+    }));
+
+    try {
+      const response = await fetch('http://localhost:8000/predict-stock', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          symbol: stockSymbol.toUpperCase(),
+          years: years
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch predictions');
+      }
+
+      const predictionData = await response.json();
+      
+      // Update the loading message with stock chart widget
+      this.setState((prev) => {
+        const messages = [...prev.messages];
+        messages[messages.length - 1] = this.createChatBotMessage("", {
+          widget: "stockChart",
+          payload: { 
+            stockSymbol: stockSymbol.toUpperCase(),
+            predictionData: predictionData,
+            years: years
+          }
+        });
+        return { ...prev, messages };
+      });
+
+    } catch (error) {
+      console.error("Stock prediction error:", error);
+      this.setState((prev) => {
+        const messages = [...prev.messages];
+        messages[messages.length - 1] = this.createChatBotMessage(`Sorry, I couldn't get predictions for ${stockSymbol}. Please check if the stock symbol is correct and try again.`);
+        return { ...prev, messages };
+      });
+    }
+  }
+
   async handleRiskAnalysis(userMessage) {
     // Add loading message
     this.setState((prev) => ({

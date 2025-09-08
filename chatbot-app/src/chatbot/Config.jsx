@@ -1,10 +1,11 @@
 import { createChatBotMessage } from "react-chatbot-kit";
 import MarkdownMessage from "./components/MarkdownMessage";
+import StockChart from "./components/StockChart";
 
 const getConfig = (userData = {}) => ({
   botName: "PensionPal",
   initialMessages: [
-    createChatBotMessage("Hello! 👋 I can provide risk predictions or explain results. What would you like?"),
+    createChatBotMessage("Hello! 👋 I can provide risk predictions, explain results, or analyze stock prices. What would you like?"),
   ],
   state: {
     userData: { ...userData },
@@ -13,6 +14,10 @@ const getConfig = (userData = {}) => ({
     {
       widgetName: "markdownMessage",
       widgetFunc: (props) => <MarkdownMessage {...props} />,
+    },
+    {
+      widgetName: "stockChart",
+      widgetFunc: (props) => <StockChart {...props} />,
     },
   ],
   customStyles: {
