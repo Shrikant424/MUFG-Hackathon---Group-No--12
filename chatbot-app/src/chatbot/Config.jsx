@@ -5,7 +5,7 @@ import StockChart from "./components/StockChart";
 const getConfig = (userData = {}) => ({
   botName: "PensionPal",
   initialMessages: [
-    createChatBotMessage("Hello! 👋 I can provide risk predictions, explain results, or analyze stock prices. What would you like?"),
+    createChatBotMessage("Hello! 👋 I can provide risk predictions, explain results, or analyze stock prices. Ask me about any stock!"),
   ],
   state: {
     userData: { ...userData },

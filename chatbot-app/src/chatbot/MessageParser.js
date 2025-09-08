@@ -86,28 +86,11 @@ class MessageParser {
   }
 
   parse(message) {
-    const correctedMessage = correctSpelling(message);
+    console.log("Parsing message:", message); // Debug log
     
-    // Check for stock prediction requests
-    if (this.isStockPredictionRequest(message)) {
-      const stockSymbol = this.extractStockSymbol(message);
-      if (stockSymbol) {
-        const years = this.extractYears(message);
-        this.actionProvider.handleStockPrediction(stockSymbol, years);
-        return;
-      }
-    }
-
-    // Check if message contains a stock symbol even without prediction keywords
-    const stockSymbol = this.extractStockSymbol(message);
-    if (stockSymbol && message.length < 20) { // Short messages with stock symbols
-      const years = this.extractYears(message);
-      this.actionProvider.handleStockPrediction(stockSymbol, years);
-      return;
-    }
-
-    // Original intent detection
+    const correctedMessage = correctSpelling(message);
     const intent = detectIntent(correctedMessage);
+    console.log("Intent:", intent); // Debug log
 
     switch (intent) {
       case 'risk':

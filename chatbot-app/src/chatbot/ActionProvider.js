@@ -24,13 +24,39 @@ class ActionProvider {
     }));
   }
 
-  async handleStockPrediction(stockSymbol, years = 2) {
-    // Add loading message
-    this.setState((prev) => ({
-      ...prev,
-      messages: [...prev.messages, this.createChatBotMessage(`📈 Analyzing ${stockSymbol} stock... This may take a moment.`)],
-    }));
+  // Extract stock symbols from text
+  extractStockSymbolsFromText(text) {
+    const stockMappings = {
+      'apple': 'AAPL',
+      'google': 'GOOGL',
+      'alphabet': 'GOOGL',
+      'microsoft': 'MSFT',
+      'tesla': 'TSLA',
+      'amazon': 'AMZN',
+      'meta': 'META',
+      'facebook': 'META',
+      'nvidia': 'NVDA',
+      'netflix': 'NFLX'
+    };
 
+    // First check for company names
+    for (const [name, symbol] of Object.entries(stockMappings)) {
+      if (text.toLowerCase().includes(name)) {
+        return symbol;
+      }
+    }
+
+    // Then check for stock symbol patterns (2-5 uppercase letters)
+    const matches = text.match(/\b([A-Z]{2,5})\b/g);
+    if (matches) {
+      // Return the first match that looks like a stock symbol
+      return matches[0];
+    }
+
+    return null;
+  }
+
+  async handleStockPredictionFromAPI(stockSymbol, years = 2) {
     try {
       const response = await fetch('http://localhost:8000/predict-stock', {
         method: 'POST',
@@ -49,28 +75,36 @@ class ActionProvider {
 
       const predictionData = await response.json();
       
-      // Update the loading message with stock chart widget
-      this.setState((prev) => {
-        const messages = [...prev.messages];
-        messages[messages.length - 1] = this.createChatBotMessage("", {
-          widget: "stockChart",
-          payload: { 
-            stockSymbol: stockSymbol.toUpperCase(),
-            predictionData: predictionData,
-            years: years
-          }
-        });
-        return { ...prev, messages };
+      // Add stock chart widget message
+      const stockMessage = this.createChatBotMessage(`📈 Stock Analysis for ${stockSymbol}`, {
+        widget: "stockChart",
+        payload: { 
+          stockSymbol: stockSymbol.toUpperCase(),
+          predictionData: predictionData,
+          years: years
+        }
       });
+      
+      this.addMessage(stockMessage);
 
     } catch (error) {
       console.error("Stock prediction error:", error);
-      this.setState((prev) => {
-        const messages = [...prev.messages];
-        messages[messages.length - 1] = this.createChatBotMessage(`Sorry, I couldn't get predictions for ${stockSymbol}. Please check if the stock symbol is correct and try again.`);
-        return { ...prev, messages };
-      });
+      const errorMessage = this.createChatBotMessage(`📊 I found ${stockSymbol} in my analysis but couldn't get live prediction data. Please ensure the backend is running.`);
+      this.addMessage(errorMessage);
     }
+  }
+
+  async handleStockPrediction(stockSymbol, years = 2) {
+    // Add a simple test message with widget
+    const message = this.createChatBotMessage(`📈 Stock Analysis for ${stockSymbol}`, {
+      widget: "stockChart",
+      payload: { 
+        stockSymbol: stockSymbol.toUpperCase(),
+        years: years
+      }
+    });
+    
+    this.addMessage(message);
   }
 
   async handleRiskAnalysis(userMessage) {
@@ -92,6 +126,8 @@ class ActionProvider {
 
     try {
       const data = await callLLM1(userMessage, userData);
+      
+      // Update the loading message with LLM1 response
       this.setState((prev) => {
         const messages = [...prev.messages];
         messages[messages.length - 1] = this.createChatBotMessage("", {
@@ -100,6 +136,18 @@ class ActionProvider {
         });
         return { ...prev, messages };
       });
+
+      // Check if LLM1 response contains stock symbols
+      const stockSymbol = this.extractStockSymbolsFromText(data);
+      if (stockSymbol) {
+        console.log(`Found stock symbol ${stockSymbol} in LLM1 response, generating prediction...`);
+        
+        // Add a brief delay to let the LLM1 response render first
+        setTimeout(() => {
+          this.handleStockPredictionFromAPI(stockSymbol, 2);
+        }, 1000);
+      }
+
     } catch (error) {
       console.error("Error:", error);
       this.setState((prev) => {
@@ -128,6 +176,8 @@ class ActionProvider {
 
     try {
       const data = await callLLM2(userMessage, userData);
+      
+      // Update the loading message with LLM2 response
       this.setState((prev) => {
         const messages = [...prev.messages];
         messages[messages.length - 1] = this.createChatBotMessage("", {
@@ -136,6 +186,18 @@ class ActionProvider {
         });
         return { ...prev, messages };
       });
+
+      // Check if LLM2 response contains stock symbols
+      const stockSymbol = this.extractStockSymbolsFromText(data);
+      if (stockSymbol) {
+        console.log(`Found stock symbol ${stockSymbol} in LLM2 response, generating prediction...`);
+        
+        // Add a brief delay to let the LLM2 response render first
+        setTimeout(() => {
+          this.handleStockPredictionFromAPI(stockSymbol, 2);
+        }, 1000);
+      }
+
     } catch (error) {
       console.error("Error:", error);
       this.setState((prev) => {
