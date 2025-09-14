@@ -8,7 +8,6 @@ class ActionProvider {
     this.setState = setStateFunc;
   }
 
-  // Add or update user info in global state
   updateUserInfo(newInfo) {
     this.setState((prev) => ({
       ...prev,
@@ -24,7 +23,7 @@ class ActionProvider {
     }));
   }
 
-  // Extract stock symbols from text
+
   extractStockSymbolsFromText(text) {
     const stockMappings = {
       'apple': 'AAPL',

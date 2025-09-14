@@ -69,8 +69,7 @@ def callLLM1(userMessage: str, userData: dict):
 
     client = OpenAI(
         base_url="https://openrouter.ai/api/v1",
-        api_key="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",
-    )
+        api_key="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"    )
 
     # Format user profile for prompt
     if userData:
@@ -97,3 +96,52 @@ def callLLM1(userMessage: str, userData: dict):
 
     print("Response generated")
     return assistant_reply
+
+
+# async def callLLM1(userMessage: str, userData: dict, contextMessages: list = None):
+#     """
+#     Call LLM1 with proper message context
+    
+#     Args:
+#         userMessage: Current user message
+#         userData: User profile data
+#         contextMessages: List of previous messages in OpenAI format [{"role": "user/assistant", "content": "..."}]
+#     """
+#     try:
+#         client = OpenAI(
+#             base_url="https://openrouter.ai/api/v1",
+#             api_key="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",
+#         )
+
+#         # Format user profile for prompt
+#         if userData:
+#             user_profile_str = "\n".join([f"{k}: {v}" for k, v in userData.items()])
+#             user_profile_section = f"\n\nUser Profile:\n{user_profile_str}\n"
+#         else:
+#             user_profile_section = "\n\nUser Profile: (not provided)\n"
+
+#         # Build messages array
+#         messages = [{"role": "system", "content": prompt + user_profile_section}]
+        
+#         # Add context messages if provided
+#         if contextMessages:
+#             # Limit context to prevent token overflow (last 12 messages)
+#             recent_context = contextMessages[-12:] if len(contextMessages) > 12 else contextMessages
+#             messages.extend(recent_context)
+        
+#         # Add current user message
+#         messages.append({"role": "user", "content": userMessage})
+
+#         response = client.chat.completions.create(
+#             model="deepseek/deepseek-r1-0528-qwen3-8b",
+#             messages=messages
+#         )
+
+#         assistant_reply = response.choices[0].message.content
+#         print(f"LLM1 Response generated (context messages: {len(contextMessages) if contextMessages else 0})")
+#         return assistant_reply
+        
+#     except Exception as e:
+#         print(f"Error in callLLM1: {e}")
+#         raise e
+

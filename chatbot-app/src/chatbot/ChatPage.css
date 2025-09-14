@@ -1,0 +1,42 @@
+/* Make chatbot expand to fill available space */
+.react-chatbot-kit-chat-container {
+  height: 100% !important;
+  width: 100% !important;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Chat message list should scroll and take all space above input */
+.react-chatbot-kit-chat-inner-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.react-chatbot-kit-chat-message-container {
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* Input stays pinned at bottom */
+.react-chatbot-kit-chat-input-container {
+  margin-top: auto;
+}
+.react-chatbot-kit-chat-bot-message {
+  background: #2563eb !important;
+  color: white !important;
+  border-radius: 12px !important;
+  max-width: 70%;
+  margin: 10px 0;
+  padding: 10px 14px;
+}
+
+.react-chatbot-kit-user-chat-message {
+  background: #f1f1f1 !important;
+  color: #000 !important;
+  border-radius: 12px !important;
+  max-width: 70%;
+  margin: 10px 0;
+  padding: 10px 14px;
+  align-self: flex-end;
+}

@@ -1,7 +1,9 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import List, Dict, Any
-from openai import OpenAI  # or the DeepSeek client
+from openai import OpenAI
+import json  # or the DeepSeek client
 from LLM.LLM1 import callLLM1
 from LLM.LLM2 import callLLM2
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,6 +14,56 @@ from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.models import load_model
 from datetime import datetime, timedelta
 import os
+import mysql.connector
+from fastapi import Depends
+from fastapi import FastAPI, Query
+from fastapi.responses import JSONResponse
+
+# --- DB CONNECTION ---
+def get_db():
+    conn = mysql.connector.connect(
+        host="localhost",
+        user="root",
+        password="Shrikroot*12",
+        database="UserData"
+    )
+    return conn
+
+# --- Models ---
+class UserSignup(BaseModel):
+    username: str
+    password: str
+
+class UserLogin(BaseModel):
+    username: str
+    password: str
+
+class ChatHistory(BaseModel):
+    context: list  
+
+class UserProfile(BaseModel):
+    name: str = ""
+    age: int
+    gender: str
+    country: str = ""
+    employmentStatus: str = ""
+    occupation: str = ""
+    annualIncome: float
+    currentSavings: float = 0
+    monthlyExpenses: float = 0
+    retirementAgeGoal: int = 65
+    riskTolerance: str = "Medium"
+    maritalStatus: str = "Single"
+    numberOfDependents: int = 0
+    educationLevel: str = "Bachelor's"
+    healthStatus: str = "Good"
+    homeOwnershipStatus: str = "Own"
+    financialGoals: str = "Retirement"
+    investmentExperience: str = "Intermediate"
+    investmentKnowledge: str = ""
+    email: str = ""
+    phone: str = ""
+
 
 app = FastAPI()
 
@@ -208,6 +260,171 @@ async def predict_stock(request: PredictionRequest):
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+
+# --- Signup ---
+@app.post("/signup")
+def signup(user: UserSignup):
+    conn = get_db()
+    cursor = conn.cursor(dictionary=True)
+
+    cursor.execute("SELECT * FROM users WHERE username=%s", (user.username,))
+    if cursor.fetchone():
+        conn.close()
+        raise HTTPException(status_code=400, detail="Username already exists")
+
+    cursor.execute("INSERT INTO users (username, password) VALUES (%s, %s)", 
+                   (user.username, user.password))
+    conn.commit()
+    conn.close()
+    return {"message": "User created successfully"}
+
+
+# --- Login ---
+@app.post("/login")
+def login(user: UserLogin):
+    conn = get_db()
+    cursor = conn.cursor(dictionary=True)
+
+    cursor.execute("SELECT * FROM users WHERE username=%s AND password=%s",
+                   (user.username, user.password))
+    result = cursor.fetchone()
+    conn.close()
+
+    if not result:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    return {"message": "Login successful", "username": user.username}
+
+
+# --- Get Profile ---
+@app.get("/profile/{username}")
+def get_profile(username: str):
+    conn = get_db()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM profiles WHERE username=%s", (username,))
+    profile = cursor.fetchone()
+    conn.close()
+    if not profile:
+        return {}
+    return profile
+
+
+# --- Save/Update Profile ---
+@app.post("/profile/{username}")
+def save_profile(username: str, profile: UserProfile):
+    if not username:
+        raise HTTPException(status_code=400, detail="Username is required.")
+
+    conn = get_db()
+    cursor = conn.cursor(dictionary=True)
+
+    # Check if user exists in 'users' table
+    cursor.execute("SELECT * FROM users WHERE username=%s", (username,))
+    user_exists = cursor.fetchone()
+    if not user_exists:
+        cursor.close()
+        conn.close()
+        raise HTTPException(status_code=400, detail="User does not exist.")
+
+    # Check if profile exists
+    cursor.execute("SELECT * FROM profiles WHERE username=%s", (username,))
+    profile_exists = cursor.fetchone()
+
+    if profile_exists:
+        # Update
+        cursor.execute("""
+            UPDATE profiles SET name=%s, age=%s, gender=%s, occupation=%s, annualIncome=%s,
+            retirementAgeGoal=%s, riskTolerance=%s, investmentKnowledge=%s, financialGoals=%s,
+            email=%s, phone=%s, country=%s, employmentStatus=%s, currentSavings=%s,
+            maritalStatus=%s, numberOfDependents=%s, educationLevel=%s, healthStatus=%s,
+            homeOwnershipStatus=%s, monthlyExpenses=%s, investmentExperience=%s
+            WHERE username=%s
+        """, (
+            profile.name, profile.age, profile.gender, profile.occupation, profile.annualIncome,
+            profile.retirementAgeGoal, profile.riskTolerance, profile.investmentKnowledge, profile.financialGoals,
+            profile.email, profile.phone, profile.country, profile.employmentStatus, profile.currentSavings,
+            profile.maritalStatus, profile.numberOfDependents, profile.educationLevel, profile.healthStatus,
+            profile.homeOwnershipStatus, profile.monthlyExpenses, profile.investmentExperience,
+            username
+        ))
+    else:
+        # Insert
+        cursor.execute("""
+            INSERT INTO profiles (username, name, age, gender, occupation, annualIncome,
+            retirementAgeGoal, riskTolerance, investmentKnowledge, financialGoals,
+            email, phone, country, employmentStatus, currentSavings,
+            maritalStatus, numberOfDependents, educationLevel, healthStatus,
+            homeOwnershipStatus, monthlyExpenses, investmentExperience)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (
+            username, profile.name, profile.age, profile.gender, profile.occupation, profile.annualIncome,
+            profile.retirementAgeGoal, profile.riskTolerance, profile.investmentKnowledge, profile.financialGoals,
+            profile.email, profile.phone, profile.country, profile.employmentStatus, profile.currentSavings,
+            profile.maritalStatus, profile.numberOfDependents, profile.educationLevel, profile.healthStatus,
+            profile.homeOwnershipStatus, profile.monthlyExpenses, profile.investmentExperience
+        ))
+
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+    return {"message": "Profile saved successfully"}
+
+@app.get("/api/chat-history/{username}")
+def get_chat_history(username: str):
+    try:
+        conn = get_db()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT context FROM chat_history WHERE username = %s", (username,))
+        row = cursor.fetchone()
+        cursor.close()
+        conn.close()
+
+        if not row:
+            return {"context": []}
+
+        return {"context": row["context"] or []}
+
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=500, detail="Failed to fetch chat history")
+
+@app.post("/api/store-history/{username}")
+def store_chat_history(username: str, chat_history: ChatHistory):
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+
+        # MySQL JSON column accepts Python dict/list if converted to JSON string
+        context_json = json.dumps(chat_history.context)
+
+        # Check if user already has a row
+        cursor.execute("SELECT username FROM chat_history WHERE username = %s", (username,))
+        row = cursor.fetchone()
+
+        if row:
+            # Update existing row
+            cursor.execute(
+                "UPDATE chat_history SET context = %s WHERE username = %s",
+                (context_json, username)
+            )
+        else:
+            # Insert new row
+            cursor.execute(
+                "INSERT INTO chat_history (username, context) VALUES (%s, %s)",
+                (username, context_json)
+            )
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return {"status": "success", "message": "Chat history saved."}
+
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=500, detail="Failed to store chat history")
 
 @app.get("/")
 async def root():
