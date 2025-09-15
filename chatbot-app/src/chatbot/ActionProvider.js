@@ -46,7 +46,7 @@ class ActionProvider {
     }
 
     // Then check for stock symbol patterns (2-5 uppercase letters)
-    const matches = text.match(/\b([A-Z]{2,5})\b/g);
+    const matches = text.match(/\b([A-Z]{3,5})\b/g);
     if (matches) {
       // Return the first match that looks like a stock symbol
       return matches[0];
