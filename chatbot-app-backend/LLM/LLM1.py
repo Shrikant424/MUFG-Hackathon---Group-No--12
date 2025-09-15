@@ -218,7 +218,7 @@ def callLLM1(userMessage: str, userData: dict):
         base_url="https://openrouter.ai/api/v1",
         api_key="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"    )
 
-    # Format user profile for prompt
+  
     if userData:
         user_profile_str = "\\n".join([f"{k}: {v}" for k, v in userData.items()])
         user_profile_section = f"\\n\\nUser Profile:\\n{user_profile_str}\\n"

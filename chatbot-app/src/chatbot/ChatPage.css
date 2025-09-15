@@ -2,25 +2,58 @@
 .react-chatbot-kit-chat-container {
   height: 100% !important;
   width: 100% !important;
-  display: flex;
-  flex-direction: column;
+  max-height: 100% !important;
+  min-height: 0 !important;
+  display: flex !important;
+
+  flex-direction: column !important;
+  overflow: hidden !important;
+  position: relative !important;
 }
 
 /* Chat message list should scroll and take all space above input */
 .react-chatbot-kit-chat-inner-container {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
+  flex: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  min-height: 0 !important;
 }
 
 .react-chatbot-kit-chat-message-container {
-  flex: 1;
-  overflow-y: auto;
+  flex: 1 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  padding: 10px !important;
+  min-height: 0 !important;
+  max-height: none !important;
+}
+
+/* Ensure message container scrolls to bottom when new messages arrive */
+.react-chatbot-kit-chat-message-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.react-chatbot-kit-chat-message-container::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.react-chatbot-kit-chat-message-container::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.react-chatbot-kit-chat-message-container::-webkit-scrollbar-thumb:hover {
+  background: #a1a1a1;
 }
 
 /* Input stays pinned at bottom */
 .react-chatbot-kit-chat-input-container {
-  margin-top: auto;
+  flex-shrink: 0 !important;
+  margin-top: 0 !important;
+  border-top: 1px solid #e5e7eb !important;
+  background: white !important;
 }
 .react-chatbot-kit-chat-bot-message {
   background: #2563eb !important;
@@ -35,8 +68,103 @@
   background: #f1f1f1 !important;
   color: #000 !important;
   border-radius: 12px !important;
-  max-width: 70%;
-  margin: 10px 0;
-  padding: 10px 14px;
-  align-self: flex-end;
+  max-width: 70% !important;
+  margin: 10px 0 !important;
+  padding: 10px 14px !important;
+  align-self: flex-end !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+}
+
+/* Prevent chat from expanding beyond container */
+.react-chatbot-kit-chat-bot-message,
+.react-chatbot-kit-user-chat-message {
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+
+/* Auto scroll to bottom when new messages arrive */
+.react-chatbot-kit-chat-message-container {
+  scroll-behavior: smooth !important;
+}
+
+/* Ensure input container stays at bottom */
+.react-chatbot-kit-chat-input-form {
+  display: flex !important;
+  padding: 10px !important;
+  background: white !important;
+}
+
+.react-chatbot-kit-chat-input {
+  flex: 1 !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 20px !important;
+  padding: 8px 15px !important;
+  outline: none !important;
+  font-size: 14px !important;
+}
+
+.react-chatbot-kit-chat-btn-send {
+  background: #2563eb !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 20px !important;
+  padding: 8px 15px !important;
+  margin-left: 10px !important;
+  cursor: pointer !important;
+  font-size: 14px !important;
+}
+
+.react-chatbot-kit-chat-btn-send:hover {
+  background: #1d4ed8 !important;
+}
+
+/* Prompt Buttons Styling */
+.prompt-buttons-container {
+  margin: 15px 0;
+  padding: 0;
+}
+
+.prompt-buttons-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #6b7280;
+  margin-bottom: 10px;
+  text-align: left;
+}
+
+.prompt-buttons-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.prompt-button {
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  color: #374151;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.prompt-button:hover {
+  background: #2563eb;
+  color: white;
+  border-color: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+}
+
+.prompt-button:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.2);
 }
