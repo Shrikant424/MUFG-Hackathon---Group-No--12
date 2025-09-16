@@ -6,6 +6,7 @@
 # import json  # or the DeepSeek client
 # from LLM.LLM1 import callLLM1
 # from LLM.LLM2 import callLLM2
+# from shared_context import get_conversation_json, get_recent_history
 # from fastapi.middleware.cors import CORSMiddleware
 # import pandas as pd
 # import numpy as np
@@ -28,6 +29,74 @@
 #         database="UserData"
 #     )
 #     return conn
+
+# def init_db():
+#     conn = mysql.connector.connect(
+#         host="localhost",
+#         user="root",
+#         password="Shrikroot*12"
+#     )
+#     cursor = conn.cursor()
+
+#     # Create database if not exists
+#     cursor.execute("CREATE DATABASE IF NOT EXISTS UserData")
+#     cursor.execute("USE UserData")
+
+#     # Create users table
+#     cursor.execute("""
+#     CREATE TABLE IF NOT EXISTS users (
+#         id INT AUTO_INCREMENT PRIMARY KEY,
+#         username VARCHAR(100) NOT NULL UNIQUE,
+#         password VARCHAR(255) NOT NULL,
+#         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+#     )
+#     """)
+
+#     # Create profiles table
+#     cursor.execute("""
+#     CREATE TABLE IF NOT EXISTS profiles (
+#         id INT AUTO_INCREMENT PRIMARY KEY,
+#         username VARCHAR(100) NOT NULL UNIQUE,
+#         name VARCHAR(100),
+#         age INT,
+#         gender VARCHAR(20),
+#         occupation VARCHAR(100),
+#         annualIncome DECIMAL(15,2),
+#         retirementAgeGoal INT,
+#         riskTolerance VARCHAR(20),
+#         investmentKnowledge VARCHAR(50),
+#         financialGoals TEXT,
+#         email VARCHAR(100),
+#         phone VARCHAR(20),
+#         country VARCHAR(100),
+#         employmentStatus VARCHAR(50),
+#         currentSavings DECIMAL(15,2),
+#         maritalStatus VARCHAR(50),
+#         numberOfDependents INT,
+#         educationLevel VARCHAR(100),
+#         healthStatus VARCHAR(50),
+#         homeOwnershipStatus VARCHAR(50),
+#         monthlyExpenses DECIMAL(15,2),
+#         investmentExperience VARCHAR(50),
+#         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+#         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+#         CONSTRAINT fk_user FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE
+#     )
+#     """)
+
+#     # Create chat_history table
+#     cursor.execute("""
+#     CREATE TABLE IF NOT EXISTS chat_history (
+#         id INT AUTO_INCREMENT PRIMARY KEY,
+#         username VARCHAR(100) NOT NULL UNIQUE,
+#         context JSON,
+#         CONSTRAINT fk_users FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE
+#     )
+#     """)
+
+#     conn.commit()
+#     cursor.close()
+#     conn.close()
 
 # # --- Models ---
 # class UserSignup(BaseModel):
@@ -65,7 +134,21 @@
 #     phone: str = ""
 
 
-# app = FastAPI()
+# from contextlib import asynccontextmanager
+# from fastapi import FastAPI
+
+# @asynccontextmanager
+# async def lifespan(app: FastAPI):
+#     # --- Startup ---
+#     init_db()
+#     print("Database initialized.")
+
+#     yield  # 👈 app runs here
+
+#     # --- Shutdown ---
+#     print("App shutting down...")
+
+# app = FastAPI(lifespan=lifespan)
 
 # app.add_middleware(
 #     CORSMiddleware,
@@ -92,28 +175,6 @@
 #     symbol: str
 #     years: int = 2
 
-# # class ChatRequest(BaseModel):
-# #     conversation: List[ChatMessage]
-# #     query: str
-# #     max_history: int = 10
-
-
-# # def build_context_messages(conversation: List[Dict[str, Any]], current_query: str, max_history: int = 10):
-# #     """Convert chat history + new query into OpenAI-style messages."""
-# #     trimmed_history = conversation[-max_history:]
-# #     history_text = "\n".join([f"{m['role'].capitalize()}: {m['content']}" for m in trimmed_history])
-
-# #     messages = [
-# #         {
-# #             "role": "system",
-# #             "content": f"Here is the previous conversation for context:\n{history_text}\n"
-# #         },
-# #         {
-# #             "role": "user",
-# #             "content": current_query
-# #         }
-# #     ]
-# #     return messages
 
 
 
@@ -333,7 +394,6 @@
 #     profile_exists = cursor.fetchone()
 
 #     if profile_exists:
-#         # Update
 #         cursor.execute("""
 #             UPDATE profiles SET name=%s, age=%s, gender=%s, occupation=%s, annualIncome=%s,
 #             retirementAgeGoal=%s, riskTolerance=%s, investmentKnowledge=%s, financialGoals=%s,
@@ -426,10 +486,19 @@
 #         print(e)
 #         raise HTTPException(status_code=500, detail="Failed to store chat history")
 
+# @app.get("/api/current-context")
+# def get_current_context():
+#     """Get the current global conversation context"""
+#     try:
+#         context = get_recent_history(50)  # Get last 50 messages
+#         return {"context": context}
+#     except Exception as e:
+#         print(f"Error getting context: {e}")
+#         raise HTTPException(status_code=500, detail="Failed to get conversation context")
+
 # @app.get("/")
 # async def root():
 #     return {"message": "MUFG Financial Assistant API is running"}
-
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -438,7 +507,7 @@ from openai import OpenAI
 import json  # or the DeepSeek client
 from LLM.LLM1 import callLLM1
 from LLM.LLM2 import callLLM2
-from shared_context import get_conversation_json, get_recent_history
+from LLM.LLM3 import callLLM3
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 import numpy as np
@@ -451,6 +520,8 @@ import mysql.connector
 from fastapi import Depends
 from fastapi import FastAPI, Query
 from fastapi.responses import JSONResponse
+from model import SuperannuationPredictor
+import logging
 
 # --- DB CONNECTION ---
 def get_db():
@@ -461,6 +532,73 @@ def get_db():
         database="UserData"
     )
     return conn
+def init_db():
+    conn = mysql.connector.connect(
+        host="localhost",
+        user="root",
+        password="Shrikroot*12"
+    )
+    cursor = conn.cursor()
+
+    # Create database if not exists
+    cursor.execute("CREATE DATABASE IF NOT EXISTS UserData")
+    cursor.execute("USE UserData")
+
+    # Create users table
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS users (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        username VARCHAR(100) NOT NULL UNIQUE,
+        password VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """)
+
+    # Create profiles table
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS profiles (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        username VARCHAR(100) NOT NULL UNIQUE,
+        name VARCHAR(100),
+        age INT,
+        gender VARCHAR(20),
+        occupation VARCHAR(100),
+        annualIncome DECIMAL(15,2),
+        retirementAgeGoal INT,
+        riskTolerance VARCHAR(20),
+        investmentKnowledge VARCHAR(50),
+        financialGoals TEXT,
+        email VARCHAR(100),
+        phone VARCHAR(20),
+        country VARCHAR(100),
+        employmentStatus VARCHAR(50),
+        currentSavings DECIMAL(15,2),
+        maritalStatus VARCHAR(50),
+        numberOfDependents INT,
+        educationLevel VARCHAR(100),
+        healthStatus VARCHAR(50),
+        homeOwnershipStatus VARCHAR(50),
+        monthlyExpenses DECIMAL(15,2),
+        investmentExperience VARCHAR(50),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        CONSTRAINT fk_user FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE
+    )
+    """)
+
+    # Create chat_history table
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS chat_history (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        username VARCHAR(100) NOT NULL UNIQUE,
+        context JSON,
+        CONSTRAINT fk_users FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE
+    )
+    """)
+
+    conn.commit()
+    cursor.close()
+    conn.close()
 
 # --- Models ---
 class UserSignup(BaseModel):
@@ -497,12 +635,26 @@ class UserProfile(BaseModel):
     email: str = ""
     phone: str = ""
 
+from contextlib import asynccontextmanager
+from fastapi import FastAPI
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # --- Startup ---
+    init_db()
+    print("Database initialized.")
+
+    yield  # 👈 app runs here
+
+    # --- Shutdown ---
+    print("App shutting down...")
+
+app = FastAPI(lifespan=lifespan)
+
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],  # React dev server (Vite)
+    allow_origins=["*"],  # Allow all origins for debugging
     allow_credentials=True,
     allow_methods=["*"],   # allow POST, GET, OPTIONS etc.
     allow_headers=["*"],
@@ -518,6 +670,11 @@ except Exception as e:
     stock_model = None
 
 class ChatMessage(BaseModel):
+    message: str
+    userData: dict = {}
+    username: str = ""  # Add username for context management
+
+class LLM3Request(BaseModel):
     message: str
     userData: dict = {}
 
@@ -554,21 +711,66 @@ class PredictionRequest(BaseModel):
 def chat(request: ChatMessage):
     # If user asks for profile or to show data, return userData directly
     msg = request.message.lower().strip()
-    if msg in ["profile", "show my data", "show my profile"]:
+    if msg in ["profile", "show my data", "show me my profile","show my profile","who am i"]:
         if request.userData:
             profile_str = "\n".join([f"{k}: {v}" for k, v in request.userData.items()])
             return {"reply": f"Your profile:\n{profile_str}"}
         else:
             return {"reply": "No user profile data found."}
-    # Otherwise, pass userData to LLM1 if needed
-    response = callLLM1(request.message, request.userData)
+    # Otherwise, pass userData and username to LLM1
+    response = callLLM1(request.message, request.userData, request.username)
     return {"reply": response}
 
 
 @app.post("/explain")
 def explain(request: ChatMessage):
-    response = callLLM2(request.message, request.userData)
-    return {"reply": response}
+    # Get the financial advice from LLM2
+    llm2_response = callLLM2(request.message, request.userData, request.username)
+    
+    # Pass the LLM2 response to LLM3 to extract stock symbols and get predictions
+    llm3_result = callLLM3(
+        userMessage=request.message,
+        llm2_response=llm2_response,
+        userData=request.userData
+    )
+    
+    # Prepare the response
+    response_data = {
+        "reply": llm2_response,
+        "stock_analysis": llm3_result if llm3_result.get("stock_symbol") else None
+    }
+    
+    return response_data
+
+@app.post("/llm3")
+def llm3_endpoint(request: LLM3Request):
+    try:
+        print(f"LLM3 endpoint called with: {request.message}, userData: {request.userData}")
+        
+        # Call LLM3 to extract relevant info
+        response = callLLM3(userMessage=request.message, userData=request.userData)
+        
+        print(f"LLM3 response: {response}")
+
+        # Handle both old string format and new dict format
+        if isinstance(response, dict):
+            # New format - return structured response
+            if not response or not response.get("stock_symbol"):
+                return {"reply": "", "stock_analysis": None}
+            return {"reply": response.get("stock_symbol", ""), "stock_analysis": response}
+        else:
+            # Old format - response is a string (stock symbol or empty)
+            if not response or response.strip() == "" or response.lower() in ["none", "null", "empty"]:
+                return {"reply": "", "stock_analysis": None}
+            return {"reply": response, "stock_analysis": None}
+    
+    except Exception as e:
+        print(f"Error in LLM3 endpoint: {e}")
+        import traceback
+        traceback.print_exc()
+        # Return a fallback response compatible with the old format
+        return {"reply": "", "stock_analysis": None, "error": str(e)}
+
 
 # Stock prediction functions
 def get_stock_data(symbol, start_date, end_date):
@@ -625,19 +827,55 @@ def predict_future_years_realistic(model, stock_data, scaler, years=2, lookback_
 
 @app.post("/predict-stock")
 async def predict_stock(request: PredictionRequest):
-    if stock_model is None:
-        raise HTTPException(status_code=500, detail="Stock prediction model not loaded")
-    
     try:
+        # Check if model is loaded
+        if stock_model is None:
+            return {
+                "error": "Stock prediction model not available",
+                "message": f"Cannot predict {request.symbol} - model not loaded",
+                "historical_dates": [],
+                "historical_prices": [],
+                "future_dates": [],
+                "future_predictions": [],
+                "uncertainty_upper": [],
+                "uncertainty_lower": [],
+                "stats": {
+                    "current_price": 0,
+                    "final_price": 0,
+                    "total_return": 0,
+                    "annualized_return": 0,
+                    "volatility": 0,
+                    "max_drawdown": 0
+                }
+            }
+        
         # Fetch historical data
         current_date = datetime.now()
         start_date = (current_date - timedelta(days=3*365 + 120)).strftime("%Y-%m-%d")
         end_date = current_date.strftime("%Y-%m-%d")
         
+        print(f"Fetching stock data for {request.symbol} from {start_date} to {end_date}")
         stock_data = get_stock_data(request.symbol, start_date, end_date)
         
         if stock_data.empty:
-            raise HTTPException(status_code=404, detail="No data found for the given symbol")
+            return {
+                "error": f"No data found for symbol {request.symbol}",
+                "message": f"Stock symbol {request.symbol} not found or delisted",
+                "historical_dates": [],
+                "historical_prices": [],
+                "future_dates": [],
+                "future_predictions": [],
+                "uncertainty_upper": [],
+                "uncertainty_lower": [],
+                "stats": {
+                    "current_price": 0,
+                    "final_price": 0,
+                    "total_return": 0,
+                    "annualized_return": 0,
+                    "volatility": 0,
+                    "max_drawdown": 0
+                }
+            }
         
         # Prepare data
         scaler = prepare_data(stock_data)
@@ -692,7 +930,25 @@ async def predict_stock(request: PredictionRequest):
         }
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"Error in stock prediction: {e}")
+        return {
+            "error": f"Prediction failed: {str(e)}",
+            "message": f"Unable to predict {request.symbol} due to technical error",
+            "historical_dates": [],
+            "historical_prices": [],
+            "future_dates": [],
+            "future_predictions": [],
+            "uncertainty_upper": [],
+            "uncertainty_lower": [],
+            "stats": {
+                "current_price": 0,
+                "final_price": 0,
+                "total_return": 0,
+                "annualized_return": 0,
+                "volatility": 0,
+                "max_drawdown": 0
+            }
+        }
 
 
 
@@ -859,16 +1115,255 @@ def store_chat_history(username: str, chat_history: ChatHistory):
         print(e)
         raise HTTPException(status_code=500, detail="Failed to store chat history")
 
-@app.get("/api/current-context")
-def get_current_context():
-    """Get the current global conversation context"""
+@app.delete("/api/chat-history/{username}")
+def clear_chat_history(username: str):
+    """Clear conversation context for a user"""
     try:
-        context = get_recent_history(50)  # Get last 50 messages
-        return {"context": context}
+        from LLM.context_manager import ContextManager
+        
+        db_config = {
+            "host": "localhost",
+            "user": "root",
+            "password": "Shrikroot*12", 
+            "database": "UserData"
+        }
+        
+        context_manager = ContextManager(db_config)
+        success = context_manager.clear_context(username)
+        
+        if success:
+            return {"status": "success", "message": f"Chat history cleared for {username}"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to clear chat history")
+            
     except Exception as e:
-        print(f"Error getting context: {e}")
-        raise HTTPException(status_code=500, detail="Failed to get conversation context")
+        print(e)
+        raise HTTPException(status_code=500, detail="Failed to clear chat history")
+
+@app.get("/api/context-stats/{username}")
+def get_context_stats(username: str):
+    """Get statistics about user's conversation context"""
+    try:
+        from LLM.context_manager import ContextManager
+        
+        db_config = {
+            "host": "localhost",
+            "user": "root",
+            "password": "Shrikroot*12",
+            "database": "UserData"
+        }
+        
+        context_manager = ContextManager(db_config)
+        context = context_manager.load_context(username)
+        
+        user_messages = len([msg for msg in context if msg.get("role") == "user"])
+        assistant_messages = len([msg for msg in context if msg.get("role") == "assistant"])
+        total_messages = len(context)
+        
+        return {
+            "username": username,
+            "total_messages": total_messages,
+            "user_messages": user_messages,
+            "assistant_messages": assistant_messages,
+            "context_available": total_messages > 0
+        }
+        
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=500, detail="Failed to get context statistics")
 
 @app.get("/")
 async def root():
     return {"message": "MUFG Financial Assistant API is running"}
+
+# Initialize the ML model at startup (add this after existing model loading)
+superannuation_predictor = SuperannuationPredictor()
+
+# Try to load pre-trained models
+try:
+    if superannuation_predictor.load_models():
+        print("Superannuation ML models loaded successfully")
+    else:
+        print("No pre-trained superannuation models found - using fallback predictions")
+except Exception as e:
+    print(f"Error loading superannuation models: {e}")
+
+# New Pydantic models for ML predictions
+class SuperannuationProfile(BaseModel):
+    age: int
+    annual_income: float
+    current_savings: float = 0
+    retirement_age_goal: int = 65
+    risk_tolerance: str = "Medium"
+    gender: str = "Male"
+    country: str = "Australia"
+    employment_status: str = "Full-time"
+    marital_status: str = "Single"
+    dependents: int = 0
+
+class InvestmentAllocation(BaseModel):
+    australian_shares: float = 0.4
+    international_shares: float = 0.3
+    australian_bonds: float = 0.15
+    international_bonds: float = 0.1
+    property_reits: float = 0.05
+    cash: float = 0.0
+
+# New API endpoint for ML predictions
+@app.post("/api/superannuation-predictions")
+async def get_superannuation_predictions(
+    profile: SuperannuationProfile,
+    allocation: InvestmentAllocation = None
+):
+    try:
+        # Default allocation based on risk tolerance if not provided
+        if allocation is None:
+            if profile.risk_tolerance.lower() == "high":
+                allocation_dict = {
+                    "Australian Shares": 0.5,
+                    "International Shares": 0.3,
+                    "Property/REITs": 0.1,
+                    "Australian Bonds": 0.05,
+                    "International Bonds": 0.05,
+                    "Cash": 0.0
+                }
+            elif profile.risk_tolerance.lower() == "low":
+                allocation_dict = {
+                    "Australian Shares": 0.2,
+                    "International Shares": 0.1,
+                    "Australian Bonds": 0.35,
+                    "International Bonds": 0.25,
+                    "Property/REITs": 0.05,
+                    "Cash": 0.05
+                }
+            else:  # Medium
+                allocation_dict = {
+                    "Australian Shares": 0.35,
+                    "International Shares": 0.25,
+                    "Australian Bonds": 0.2,
+                    "International Bonds": 0.1,
+                    "Property/REITs": 0.08,
+                    "Cash": 0.02
+                }
+        else:
+            allocation_dict = {
+                "Australian Shares": allocation.australian_shares,
+                "International Shares": allocation.international_shares,
+                "Australian Bonds": allocation.australian_bonds,
+                "International Bonds": allocation.international_bonds,
+                "Property/REITs": allocation.property_reits,
+                "Cash": allocation.cash
+            }
+        
+        # Convert profile to dict format expected by ML model
+        user_profile = {
+            "age": profile.age,
+            "annual_income": profile.annual_income,
+            "current_savings": profile.current_savings,
+            "retirement_age_goal": profile.retirement_age_goal,
+            "risk_tolerance": profile.risk_tolerance,
+            "gender": profile.gender,
+            "country": profile.country,
+            "employment_status": profile.employment_status,
+            "marital_status": profile.marital_status,
+            "dependents": profile.dependents
+        }
+        
+        # Get predictions from ML model
+        predictions = superannuation_predictor.predict_future_value(
+            user_profile, allocation_dict
+        )
+        
+        # Get portfolio evaluation
+        portfolio_evaluation = superannuation_predictor.evaluate_portfolio(
+            user_profile, allocation_dict
+        )
+        
+        # Get feature importance if available
+        feature_importance = superannuation_predictor.get_feature_importance()
+        
+        return {
+            "success": True,
+            "predictions": predictions,
+            "portfolio_evaluation": portfolio_evaluation,
+            "feature_importance": feature_importance,
+            "allocation_used": allocation_dict
+        }
+        
+    except Exception as e:
+        logging.error(f"Error generating superannuation predictions: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Failed to generate predictions. Please try again."
+        }
+
+# Enhanced profile endpoint that returns ML-ready data
+@app.get("/api/profile-with-predictions/{username}")
+async def get_profile_with_predictions(username: str):
+    try:
+        conn = get_db()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM profiles WHERE username=%s", (username,))
+        profile = cursor.fetchone()
+        conn.close()
+        
+        if not profile:
+            return {"profile": {}, "predictions": None}
+        
+        # Generate predictions if profile exists
+        superannuation_profile = SuperannuationProfile(
+            age=profile.get('age', 30),
+            annual_income=profile.get('annualIncome', 50000),
+            current_savings=profile.get('currentSavings', 10000),
+            retirement_age_goal=profile.get('retirementAgeGoal', 65),
+            risk_tolerance=profile.get('riskTolerance', 'Medium'),
+            gender=profile.get('gender', 'Male'),
+            country=profile.get('country', 'Australia'),
+            employment_status=profile.get('employmentStatus', 'Full-time'),
+            marital_status=profile.get('maritalStatus', 'Single'),
+            dependents=profile.get('numberOfDependents', 0)
+        )
+        
+        # Get predictions
+        prediction_response = await get_superannuation_predictions(superannuation_profile)
+        
+        return {
+            "profile": profile,
+            "predictions": prediction_response if prediction_response["success"] else None
+        }
+        
+    except Exception as e:
+        logging.error(f"Error getting profile with predictions: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Training endpoint (optional - for retraining the model)
+@app.post("/api/train-model")
+async def train_model(training_data: dict = None):
+    """
+    Endpoint to train or retrain the ML model
+    This is optional and would typically be used by administrators
+    """
+    try:
+        if not training_data:
+            return {"error": "No training data provided"}
+        
+        # Convert training data to DataFrame
+        df = pd.DataFrame(training_data)
+        
+        # Train the model
+        training_results = superannuation_predictor.train(df)
+        
+        return {
+            "success": True,
+            "training_results": training_results,
+            "message": "Model training completed"
+        }
+        
+    except Exception as e:
+        logging.error(f"Error training model: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Model training failed"
+        }

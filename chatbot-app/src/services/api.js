@@ -1,7 +1,8 @@
 import axios from 'axios';
 
 // Create axios instance with base configuration
-const API_BASE_URL =  'http://localhost:5000';
+const API_BASE_URL = 'http://localhost:5000';
+const ML_API_BASE_URL = 'http://127.0.0.1:8000';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -62,7 +63,27 @@ api.interceptors.response.use(
   }
 );
 
-// API Functions
+// Generic API call function for ML model endpoints
+const apiCall = async (endpoint, options = {}) => {
+  try {
+    const response = await fetch(`${ML_API_BASE_URL}${endpoint}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+      ...options,
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error(`API call failed for ${endpoint}:`, error);
+    throw error;
+  }
+};
+
+// EXISTING API Functions
 
 // Health check
 export const healthCheck = async () => {
@@ -135,7 +156,105 @@ export const getEducationalContent = async (topic, level = 'beginner') => {
   });
 };
 
-// Utility functions for data processing
+// NEW ML MODEL API Functions
+
+// Get superannuation predictions for a user profile
+export const getSuperannuationPredictions = async (profile, allocation = null) => {
+  return apiCall('/api/superannuation-predictions', {
+    method: 'POST',
+    body: JSON.stringify({
+      age: profile.age || 30,
+      annual_income: profile.annualIncome || profile.annual_income || 50000,
+      current_savings: profile.currentSavings || profile.current_savings || 10000,
+      retirement_age_goal: profile.retirementAgeGoal || profile.retirement_age_goal || 65,
+      risk_tolerance: profile.riskTolerance || profile.risk_tolerance || 'Medium',
+      gender: profile.gender || 'Male',
+      country: profile.country || 'Australia',
+      employment_status: profile.employmentStatus || profile.employment_status || 'Full-time',
+      marital_status: profile.maritalStatus || profile.marital_status || 'Single',
+      dependents: profile.numberOfDependents || profile.dependents || 0,
+      ...allocation && { allocation }
+    }),
+  });
+};
+
+// Get profile with predictions
+export const getProfileWithPredictions = async (username) => {
+  return apiCall(`/api/profile-with-predictions/${username}`);
+};
+
+// Get user profile (ML model version)
+export const getProfile = async (username) => {
+  return apiCall(`/profile/${username}`);
+};
+
+// Save user profile (ML model version)
+export const saveProfile = async (username, profileData) => {
+  return apiCall(`/profile/${username}`, {
+    method: 'POST',
+    body: JSON.stringify(profileData),
+  });
+};
+
+// Authentication APIs (ML model)
+export const login = async (username, password) => {
+  return apiCall('/login', {
+    method: 'POST',
+    body: JSON.stringify({ username, password }),
+  });
+};
+
+export const signup = async (username, password) => {
+  return apiCall('/signup', {
+    method: 'POST',
+    body: JSON.stringify({ username, password }),
+  });
+};
+
+// Chat APIs (ML model)
+export const chat = async (message, userData = {}) => {
+  return apiCall('/chat', {
+    method: 'POST',
+    body: JSON.stringify({ message, userData }),
+  });
+};
+
+export const explain = async (message, userData = {}) => {
+  return apiCall('/explain', {
+    method: 'POST',
+    body: JSON.stringify({ message, userData }),
+  });
+};
+
+// Stock predictions
+export const getStockPrediction = async (symbol, years = 2) => {
+  return apiCall('/predict-stock', {
+    method: 'POST',
+    body: JSON.stringify({ symbol, years }),
+  });
+};
+
+// Train model (admin function)
+export const trainModel = async (trainingData) => {
+  return apiCall('/api/train-model', {
+    method: 'POST',
+    body: JSON.stringify(trainingData),
+  });
+};
+
+// Chat history functions
+export const getChatHistory = async (username) => {
+  return apiCall(`/api/chat-history/${username}`);
+};
+
+export const storeChatHistory = async (username, context) => {
+  return apiCall(`/api/store-history/${username}`, {
+    method: 'POST',
+    body: JSON.stringify({ context }),
+  });
+};
+
+// EXISTING Utility functions for data processing
 
 export const formatCurrency = (amount, currency = 'AUD') => {
   if (amount >= 1000000) {

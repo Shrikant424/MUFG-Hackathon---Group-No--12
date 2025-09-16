@@ -6,32 +6,82 @@ import { getRecommendations } from "./services/api";
 const DashboardPage = ({ username, profile }) => {
   const navigate = useNavigate();
   const [recommendations, setRecommendations] = useState(null);
+  const [predictions, setPredictions] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [predictionError, setPredictionError] = useState(null);
 
   // Fallback placeholders if profile not ready
   // Always use username from props if not present in profile
   const displayedProfile = {
     username: (profile && profile.username) || username,
-    age: (profile && profile.age) || "-",
-    retirementAgeGoal: (profile && profile.retirementAgeGoal) || "-",
-    currentSavings: (profile && profile.currentSavings) || "-",
-    annualIncome: (profile && profile.annualIncome) || "-",
-    riskTolerance: (profile && profile.riskTolerance) || "-",
+    age: (profile && profile.age) || 18, // Changed default to 18
+    retirementAgeGoal: (profile && profile.retirementAgeGoal) || 65,
+    currentSavings: (profile && profile.currentSavings) || 1000,
+    annualIncome: (profile && profile.annualIncome) || 90000,
+    riskTolerance: (profile && profile.riskTolerance) || "Medium",
   };
 
-  const currentAge = displayedProfile.age !== "-" ? displayedProfile.age : 30;
-  const retirementAge = displayedProfile.retirementAgeGoal !== "-" ? displayedProfile.retirementAgeGoal : 65;
+  const currentAge = displayedProfile.age;
+  const retirementAge = displayedProfile.retirementAgeGoal;
   const yearsToRetire = Math.max(0, retirementAge - currentAge);
-  const retirementProgress = Math.min(100, ((currentAge - 25) / (retirementAge - 25)) * 100);
+  
+  // Fixed retirement progress calculation - should start from a reasonable working age
+  const startingAge = 22; // Typical working start age
+  const retirementProgress = currentAge <= startingAge ? 0 : 
+    Math.min(100, ((currentAge - startingAge) / (retirementAge - startingAge)) * 100);
 
-  // Fetch recommendations dynamically
+  // Fetch ML predictions with better error handling
   useEffect(() => {
-    const loadRecommendations = async () => {
+    const loadPredictions = async () => {
       if (!profile) {
         setLoading(false);
         return;
       }
+      
       setLoading(true);
+      setPredictionError(null);
+      
+      try {
+        const response = await fetch(`http://127.0.0.1:8000/api/profile-with-predictions/${username}`);
+        
+        if (!response.ok) {
+          throw new Error(`API returned ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.predictions && data.predictions.predictions) {
+          // Validate numerical values and handle NaN
+          const validatedPredictions = {
+            ...data.predictions,
+            predictions: {
+              ...data.predictions.predictions,
+              projected_final_balance: isNaN(data.predictions.predictions.projected_final_balance) 
+                ? 0 : data.predictions.predictions.projected_final_balance,
+              expected_annual_return: isNaN(data.predictions.predictions.expected_annual_return)
+                ? 0.07 : data.predictions.predictions.expected_annual_return
+            }
+          };
+          setPredictions(validatedPredictions);
+        } else {
+          setPredictionError("Unable to generate predictions. Please complete your profile.");
+        }
+      } catch (err) {
+        console.error("Failed to load ML predictions", err);
+        setPredictionError(`Failed to connect to prediction service: ${err.message}`);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadPredictions();
+  }, [profile, username]);
+
+  // Fetch recommendations (keeping original functionality)
+  useEffect(() => {
+    const loadRecommendations = async () => {
+      if (!profile) return;
+      
       try {
         const transformedProfile = {
           Age: profile.age,
@@ -42,12 +92,27 @@ const DashboardPage = ({ username, profile }) => {
       } catch (err) {
         console.error("Failed to load recommendations", err);
         setRecommendations(null);
-      } finally {
-        setLoading(false);
       }
     };
     loadRecommendations();
   }, [profile]);
+
+  const formatCurrency = (amount) => {
+    // Handle NaN and invalid values
+    const validAmount = isNaN(amount) || amount === null || amount === undefined ? 0 : amount;
+    return new Intl.NumberFormat('en-AU', {
+      style: 'currency',
+      currency: 'AUD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(validAmount);
+  };
+
+  const formatPercentage = (value) => {
+    // Handle NaN and invalid values
+    const validValue = isNaN(value) || value === null || value === undefined ? 0 : value;
+    return `${(validValue * 100).toFixed(1)}%`;
+  };
 
   return (
     <div style={{ backgroundColor: '#f5f7fa', minHeight: '100vh', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
@@ -92,7 +157,7 @@ const DashboardPage = ({ username, profile }) => {
             <div style={{ ...iconCircleStyle, backgroundColor: '#4285f4' }}>🏛️</div>
             <div style={{ marginLeft: '15px' }}>
               <div style={statValueStyle}>
-                {displayedProfile.currentSavings !== "-" ? `$${displayedProfile.currentSavings}` : "$100"}
+                {formatCurrency(displayedProfile.currentSavings)}
               </div>
               <div style={statLabelStyle}>Current Balance</div>
               <div style={statSubtextStyle}>Superannuation balance</div>
@@ -112,7 +177,7 @@ const DashboardPage = ({ username, profile }) => {
             <div style={{ ...iconCircleStyle, backgroundColor: '#34a853' }}>💰</div>
             <div style={{ marginLeft: '15px' }}>
               <div style={statValueStyle}>
-                {displayedProfile.annualIncome !== "-" ? `$${displayedProfile.annualIncome}` : "$10,000"}
+                {formatCurrency(displayedProfile.annualIncome)}
               </div>
               <div style={statLabelStyle}>Annual Income</div>
               <div style={statSubtextStyle}>Current salary</div>
@@ -122,7 +187,7 @@ const DashboardPage = ({ username, profile }) => {
           <div style={statCardStyle}>
             <div style={{ ...iconCircleStyle, backgroundColor: '#ff9800' }}>🎯</div>
             <div style={{ marginLeft: '15px' }}>
-              <div style={statValueStyle}>{displayedProfile.riskTolerance || "Medium"}</div>
+              <div style={statValueStyle}>{displayedProfile.riskTolerance}</div>
               <div style={statLabelStyle}>Risk Profile</div>
               <div style={statSubtextStyle}>Investment preference</div>
             </div>
@@ -131,83 +196,264 @@ const DashboardPage = ({ username, profile }) => {
 
         {/* Main Content Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
-          {/* Retirement Progress */}
+          {/* Retirement Progress - Fixed */}
           <div style={contentCardStyle}>
             <h3 style={cardTitleStyle}>Retirement Journey Progress</h3>
             <div style={{ marginBottom: '15px' }}>
               <div style={{ fontSize: '14px', color: '#666', marginBottom: '10px' }}>
                 Age {currentAge} → {retirementAge}
-                <span style={{ float: 'right', color: '#ea4335', fontWeight: '600' }}>
+                <span style={{ float: 'right', color: retirementProgress > 50 ? '#27ae60' : '#e67e22', fontWeight: '600' }}>
                   {retirementProgress.toFixed(1)}%
                 </span>
               </div>
               <div style={{ backgroundColor: '#e3f2fd', height: '8px', borderRadius: '4px', overflow: 'hidden' }}>
                 <div style={{
-                  backgroundColor: '#2196f3',
+                  backgroundColor: retirementProgress > 50 ? '#27ae60' : retirementProgress > 25 ? '#f39c12' : '#3498db',
                   height: '100%',
-                  width: `${retirementProgress}%`,
+                  width: `${Math.max(2, retirementProgress)}%`, // Minimum 2% to show some progress
                   transition: 'width 0.3s ease'
                 }}></div>
               </div>
             </div>
             <div style={{ fontSize: '14px', color: '#666' }}>
-              {yearsToRetire} years remaining until your target retirement age
+              {yearsToRetire > 0 ? `${yearsToRetire} years remaining until your target retirement age` : 'You have reached your target retirement age!'}
+            </div>
+            
+            {/* Additional milestone indicators */}
+            <div style={{ marginTop: '15px', display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#999' }}>
+              <span style={{ color: currentAge >= 30 ? '#27ae60' : '#bdc3c7' }}>30s ✓</span>
+              <span style={{ color: currentAge >= 40 ? '#27ae60' : '#bdc3c7' }}>40s ✓</span>
+              <span style={{ color: currentAge >= 50 ? '#27ae60' : '#bdc3c7' }}>50s ✓</span>
+              <span style={{ color: currentAge >= 60 ? '#27ae60' : '#bdc3c7' }}>60s ✓</span>
             </div>
           </div>
 
-          {/* Current Recommendation */}
+          {/* ML Prediction Results - Fixed */}
           <div style={contentCardStyle}>
-            <h3 style={cardTitleStyle}>Current Recommendation</h3>
+            <h3 style={cardTitleStyle}>🤖 AI Prediction Results</h3>
             {loading ? (
               <div style={{ textAlign: 'center', padding: '20px' }}>
                 <CircularProgress size={30} style={{ color: '#4285f4' }} />
+                <div style={{ marginTop: '10px', fontSize: '14px', color: '#666' }}>
+                  Analyzing your profile...
+                </div>
               </div>
-            ) : recommendations ? (
+            ) : predictionError ? (
+              <div style={{ color: '#e74c3c', fontSize: '14px', padding: '15px', backgroundColor: '#fdf2f2', borderRadius: '8px', border: '1px solid #fadbd8' }}>
+                ⚠️ {predictionError}
+                <div style={{ marginTop: '10px' }}>
+                  <button 
+                    style={{ ...primaryButtonStyle, fontSize: '12px', padding: '6px 12px' }}
+                    onClick={() => navigate("/update-profile")}
+                  >
+                    Complete Profile
+                  </button>
+                </div>
+              </div>
+            ) : predictions && predictions.predictions ? (
               <div>
-                <div style={{ fontSize: '18px', fontWeight: '600', color: '#2c3e50', marginBottom: '10px' }}>
-                  {recommendations.recommended_investments?.primary_recommendation?.name || "Balanced Growth"}
+                <div style={{ marginBottom: '20px' }}>
+                  <div style={{ fontSize: '18px', fontWeight: '600', color: '#2c3e50', marginBottom: '5px' }}>
+                    Projected Final Balance
+                  </div>
+                  <div style={{ fontSize: '24px', fontWeight: '700', color: '#27ae60', marginBottom: '10px' }}>
+                    {formatCurrency(predictions.predictions.projected_final_balance)}
+                  </div>
+                  <div style={{ fontSize: '14px', color: '#666' }}>
+                    Expected Annual Return: {formatPercentage(predictions.predictions.expected_annual_return)}
+                  </div>
                 </div>
-                <div style={{ color: '#666', marginBottom: '15px' }}>
-                  {recommendations.recommended_investments?.primary_recommendation?.description || 
-                   "Balanced approach between growth and stability"}
-                </div>
-                <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
-                  <span style={{ backgroundColor: '#4caf50', color: 'white', padding: '4px 12px', borderRadius: '12px', fontSize: '12px' }}>
-                    6.8% return
-                  </span>
-                  <span style={{ backgroundColor: '#f5f5f5', color: '#666', padding: '4px 12px', borderRadius: '12px', fontSize: '12px' }}>
-                    0.75% fees
-                  </span>
-                </div>
-                <button style={viewDetailsButtonStyle}>View Details</button>
+
+                {/* Scenarios */}
+                {predictions.scenarios && (
+                  <div style={{ marginBottom: '15px' }}>
+                    <div style={{ fontSize: '16px', fontWeight: '600', color: '#2c3e50', marginBottom: '10px' }}>
+                      Scenario Analysis
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+                      {Object.entries(predictions.scenarios).map(([scenario, data]) => (
+                        <div key={scenario} style={{ 
+                          padding: '8px', 
+                          borderRadius: '6px', 
+                          backgroundColor: scenario === 'optimistic' ? '#d5f4e6' : scenario === 'pessimistic' ? '#fdf2f2' : '#f8f9fa',
+                          border: `1px solid ${scenario === 'optimistic' ? '#27ae60' : scenario === 'pessimistic' ? '#e74c3c' : '#dee2e6'}`
+                        }}>
+                          <div style={{ fontSize: '12px', textTransform: 'capitalize', fontWeight: '600', marginBottom: '4px', color: '#2c3e50' }}>
+                            {scenario}
+                          </div>
+                          <div style={{ fontSize: '14px', fontWeight: '600', color: scenario === 'optimistic' ? '#27ae60' : scenario === 'pessimistic' ? '#e74c3c' : '#3498db' }}>
+                            {formatCurrency(data.final_balance)}
+                          </div>
+                          <div style={{ fontSize: '10px', color: '#666' }}>
+                            Annual: {formatCurrency(data.annual_retirement_income)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Confidence Level */}
+                {predictions.model_confidence && (
+                  <div style={{ marginTop: '15px', padding: '10px', backgroundColor: '#f8f9fa', borderRadius: '6px', border: '1px solid #dee2e6' }}>
+                    <div style={{ fontSize: '14px', fontWeight: '600', color: '#2c3e50', marginBottom: '5px' }}>
+                      Prediction Confidence: {predictions.model_confidence.confidence_level || 'Medium'}
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#666' }}>
+                      Model accuracy: {((predictions.model_confidence.overall_confidence || 0.7) * 100).toFixed(0)}%
+                    </div>
+                  </div>
+                )}
+
+                <button style={viewDetailsButtonStyle} onClick={() => console.log('View detailed predictions:', predictions)}>
+                  View Detailed Analysis
+                </button>
               </div>
             ) : (
-              <div style={{ color: '#666' }}>Complete your profile to get recommendations</div>
+              <div style={{ color: '#666', textAlign: 'center', padding: '20px' }}>
+                <div style={{ fontSize: '48px', marginBottom: '10px' }}>🔮</div>
+                <div>Complete your profile to see AI predictions</div>
+                <button 
+                  style={{ ...primaryButtonStyle, marginTop: '10px' }}
+                  onClick={() => navigate("/update-profile")}
+                >
+                  Complete Profile
+                </button>
+              </div>
             )}
           </div>
         </div>
 
-        {/* Bottom Content Grid */}
+        {/* Bottom Content Grid - Enhanced Portfolio Performance */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-          {/* Portfolio Performance */}
+          {/* Enhanced Portfolio Performance */}
           <div style={contentCardStyle}>
-            <h3 style={cardTitleStyle}>Portfolio Performance Projection</h3>
-            <div style={{ height: '150px', backgroundColor: '#f8f9fa', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#666' }}>
-              Chart placeholder - Performance data will be displayed here
-            </div>
+            <h3 style={cardTitleStyle}>📊 Portfolio Performance Projection</h3>
+            {predictions && predictions.portfolio_evaluation ? (
+              <div>
+                {/* Visual Return Indicator */}
+                <div style={{ marginBottom: '20px', textAlign: 'center' }}>
+                  <div style={{ 
+                    width: '120px', 
+                    height: '120px', 
+                    borderRadius: '50%', 
+                    background: `conic-gradient(#27ae60 0deg ${(predictions.portfolio_evaluation.expected_annual_return * 100) * 3.6}deg, #ecf0f1 ${(predictions.portfolio_evaluation.expected_annual_return * 100) * 3.6}deg 360deg)`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    margin: '0 auto',
+                    position: 'relative'
+                  }}>
+                    <div style={{
+                      width: '80px',
+                      height: '80px',
+                      backgroundColor: 'white',
+                      borderRadius: '50%',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '16px',
+                      fontWeight: '600',
+                      color: '#27ae60'
+                    }}>
+                      {formatPercentage(predictions.portfolio_evaluation.expected_annual_return)}
+                      <div style={{ fontSize: '10px', color: '#666' }}>Annual Return</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Performance Metrics Grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                  <div style={{ padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '8px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '12px', color: '#666', marginBottom: '5px' }}>Expected Return</div>
+                    <div style={{ fontSize: '18px', fontWeight: '600', color: '#27ae60' }}>
+                      {formatPercentage(predictions.portfolio_evaluation.expected_annual_return)}
+                    </div>
+                  </div>
+                  <div style={{ padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '8px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '12px', color: '#666', marginBottom: '5px' }}>Risk Level</div>
+                    <div style={{ fontSize: '18px', fontWeight: '600', color: '#e67e22' }}>
+                      {formatPercentage(predictions.portfolio_evaluation.estimated_volatility)}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Risk Assessment Bar */}
+                <div style={{ marginTop: '15px' }}>
+                  <div style={{ fontSize: '14px', color: '#666', marginBottom: '8px' }}>
+                    Risk Assessment
+                  </div>
+                  <div style={{ height: '6px', backgroundColor: '#ecf0f1', borderRadius: '3px', overflow: 'hidden' }}>
+                    <div style={{
+                      height: '100%',
+                      width: `${Math.min(100, (predictions.portfolio_evaluation.estimated_volatility || 0) * 500)}%`,
+                      backgroundColor: (predictions.portfolio_evaluation.estimated_volatility || 0) > 0.15 ? '#e74c3c' : 
+                                    (predictions.portfolio_evaluation.estimated_volatility || 0) > 0.08 ? '#f39c12' : '#27ae60',
+                      borderRadius: '3px'
+                    }}></div>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: '15px', fontSize: '14px', color: '#666', textAlign: 'center' }}>
+                  Suitability: <span style={{ fontWeight: '600', color: '#2c3e50' }}>
+                    {predictions.portfolio_evaluation.suitability_rating || 'Good Match'}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '40px' }}>
+                <div style={{ fontSize: '48px', marginBottom: '15px' }}>📈</div>
+                <div style={{ color: '#666', marginBottom: '15px' }}>
+                  Performance analysis will appear here once predictions are loaded
+                </div>
+                <div style={{ fontSize: '12px', color: '#999' }}>
+                  Expected return • Risk analysis • Portfolio suitability
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Market Insights */}
+          {/* Contribution Analysis */}
           <div style={contentCardStyle}>
-            <h3 style={cardTitleStyle}>Market Insights</h3>
-            <div style={{ space: '10px' }}>
-              <div style={{ fontSize: '14px', color: '#666', marginBottom: '10px' }}>
-                • Inflation moderating but still above target ranges
+            <h3 style={cardTitleStyle}>💡 Contribution Strategy</h3>
+            {predictions && predictions.contribution_analysis ? (
+              <div>
+                {Object.entries(predictions.contribution_analysis).slice(0, 2).map(([key, data]) => (
+                  <div key={key} style={{ marginBottom: '15px', padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '8px' }}>
+                    <div style={{ fontSize: '14px', fontWeight: '600', color: '#2c3e50', marginBottom: '8px' }}>
+                      {key.replace('_', ' ').toUpperCase()} STRATEGY
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                      <div>
+                        <div style={{ fontSize: '12px', color: '#666' }}>Target Income</div>
+                        <div style={{ fontSize: '16px', fontWeight: '600', color: '#3498db' }}>
+                          {formatCurrency(data.target_retirement_income)}/year
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '12px', color: '#666' }}>Extra Monthly</div>
+                        <div style={{ fontSize: '16px', fontWeight: '600', color: '#e74c3c' }}>
+                          {formatCurrency(data.additional_monthly_contribution_needed)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div style={{ fontSize: '14px', color: '#666' }}>
-                • Central bank policy normalization continuing
+            ) : (
+              <div style={{ textAlign: 'center', padding: '30px' }}>
+                <div style={{ fontSize: '48px', marginBottom: '15px' }}>🎯</div>
+                <div style={{ color: '#666', marginBottom: '15px' }}>
+                  Personalized contribution strategies will appear here
+                </div>
+                <div style={{ fontSize: '14px', color: '#999', lineHeight: '1.4' }}>
+                  • Complete your profile for personalized strategies<br/>
+                  • AI will analyze optimal contribution amounts<br/>
+                  • Get recommendations for different scenarios
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
@@ -215,6 +461,7 @@ const DashboardPage = ({ username, profile }) => {
   );
 };
 
+// All the existing styles remain the same
 const headerStyle = {
   backgroundColor: '#4285f4',
   padding: '15px 20px',
