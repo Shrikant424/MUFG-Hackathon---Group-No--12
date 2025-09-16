@@ -116,25 +116,6 @@ export const sendChatMessage = async (message, userProfile = null, conversationH
 };
 
 // Recommendations APIs - UPDATED VERSION
-export const getRecommendations = async (userProfile) => {
-  // Transform frontend camelCase to backend PascalCase/snake_case
-  const transformedProfile = {
-    Age: userProfile.age || userProfile.Age,
-    Annual_Income: userProfile.annualIncome || userProfile.Annual_Income,
-    Current_Savings: userProfile.currentSavings || userProfile.Current_Savings || 0,
-    Retirement_Age_Goal: userProfile.retirementAgeGoal || userProfile.Retirement_Age_Goal || 65,
-    Risk_Tolerance: userProfile.riskTolerance || userProfile.Risk_Tolerance,
-    Employment_Status: userProfile.employmentStatus || userProfile.Employment_Status || 'Full-time',
-    Marital_Status: userProfile.maritalStatus || userProfile.Marital_Status || 'Single',
-    Number_of_Dependents: userProfile.numberOfDependents || userProfile.Number_of_Dependents || 0
-  };
-
-  console.log('API sending transformed profile to backend:', transformedProfile);
-
-  return await api.post('/api/recommendations', {
-    user_profile: transformedProfile
-  });
-};
 
 // Predictions APIs
 export const getPredictions = async (userProfile, investmentAllocation) => {

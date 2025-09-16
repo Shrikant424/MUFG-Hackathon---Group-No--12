@@ -39,9 +39,9 @@ def get_db():
     return conn
 def init_db():
     conn = mysql.connector.connect(
-        host="localhost",
-        user="root",
-        password="Shrikroot*12"
+        host=os.getenv("db_host"),
+        user=os.getenv("db_user"),
+        password=os.getenv("db_pass"),
     )
     cursor = conn.cursor()
 

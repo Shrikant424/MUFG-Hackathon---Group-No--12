@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, Grid, Card, CardContent, Typography, Button, LinearProgress, CircularProgress } from "@mui/material";
-import { getRecommendations } from "./services/api";
+
 
 const DashboardPage = ({ username, profile }) => {
   const navigate = useNavigate();
@@ -16,8 +16,8 @@ const DashboardPage = ({ username, profile }) => {
   // Always use username from props if not present in profile
   const displayedProfile = {
     username: (profile && profile.username) || username,
-    age: (profile && profile.age) || 18, // Changed default to 18
-    retirementAgeGoal: (profile && profile.retirementAgeGoal) || 65,
+    age: parseInt((profile && profile.age)) || 25, // Changed default to 25 and ensure it's a number
+    retirementAgeGoal: parseInt((profile && profile.retirementAgeGoal)) || 65, // Ensure it's a number
     currentSavings: (profile && profile.currentSavings) || 1000,
     annualIncome: (profile && profile.annualIncome) || 90000,
     riskTolerance: (profile && profile.riskTolerance) || "Medium",
@@ -27,10 +27,33 @@ const DashboardPage = ({ username, profile }) => {
   const retirementAge = displayedProfile.retirementAgeGoal;
   const yearsToRetire = Math.max(0, retirementAge - currentAge);
   
-  // Fixed retirement progress calculation - should start from a reasonable working age
-  const startingAge = 22; // Typical working start age
-  const retirementProgress = currentAge <= startingAge ? 0 : 
-    Math.min(100, ((currentAge - startingAge) / (retirementAge - startingAge)) * 100);
+  // Fixed retirement progress calculation
+  const startingAge = 18; // More realistic starting working age
+  const workingYears = retirementAge - startingAge; // Total working years
+  const yearsWorked = Math.max(0, currentAge - startingAge); // Years already worked
+
+  // Calculate progress with proper handling
+  let retirementProgress = 0;
+  if (currentAge >= retirementAge) {
+    retirementProgress = 100; // Fully retired
+  } else if (currentAge >= startingAge && workingYears > 0) {
+    retirementProgress = (yearsWorked / workingYears) * 100;
+  } else {
+    retirementProgress = 0; // Too young to have started working
+  }
+
+  // Ensure progress is between 0 and 100
+  retirementProgress = Math.min(100, Math.max(0, retirementProgress));
+
+  // Debug logging
+  console.log('Retirement Progress Debug:', {
+    currentAge,
+    retirementAge,
+    startingAge,
+    yearsWorked,
+    workingYears,
+    retirementProgress: retirementProgress.toFixed(1) + '%'
+  });
 
   // Fetch ML predictions with better error handling
   useEffect(() => {
@@ -89,27 +112,6 @@ const DashboardPage = ({ username, profile }) => {
       .finally(() => setLoading(false));
   }, []);
 
-  // Fetch recommendations (keeping original functionality)
-  useEffect(() => {
-    const loadRecommendations = async () => {
-      if (!profile) return;
-      
-      try {
-        const transformedProfile = {
-          Age: profile.age,
-          Annual_Income: profile.annualIncome || profile.annual_income || 0,
-        };
-        const recs = await getRecommendations(transformedProfile);
-        setRecommendations(recs.recommendations || recs);
-      } catch (err) {
-        console.error("Failed to load recommendations", err);
-        setRecommendations(null);
-      }
-    };
-    loadRecommendations();
-  }, [profile]);
-
-
   const formatCurrency = (amount) => {
     // Handle NaN and invalid values
     const validAmount = isNaN(amount) || amount === null || amount === undefined ? 0 : amount;
@@ -126,6 +128,13 @@ const DashboardPage = ({ username, profile }) => {
     const validValue = isNaN(value) || value === null || value === undefined ? 0 : value;
     return `${(validValue * 100).toFixed(1)}%`;
   };
+  const topStocks = [
+    { symbol: 'BAJAJFINSV.NS', name: 'Bajaj Finserv Ltd.', price: 195.34, change: '+1.12%' },
+    { symbol: 'JIOFIN.NS', name: 'Jio Financial Services Limited', price: 340.12, change: '+0.85%' },
+    { symbol: 'ITC.NS', name: 'ITC Limited', price: 2785.67, change: '-0.23%' },
+    { symbol: 'COALINDIA.NS', name: 'Coal India Limited', price: 134.56, change: '+0.45%' },
+    { symbol: 'TCS.NS', name: 'Tata Consultancy Services Limited', price: 720.89, change: '-1.02%' },
+  ];
 
   return (
     <div style={{ backgroundColor: '#f5f7fa', minHeight: '100vh', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
@@ -257,8 +266,7 @@ const DashboardPage = ({ username, profile }) => {
               </div>
             </div>
           </div>
-
-            {/* Quote of the Day - Replaces ML Predictions */}
+                            {/* Quote of the Day - Replaces ML Predictions */}
   <div style={contentCardStyle}>
     <h3 style={cardTitleStyle}>📖 Quote of the Day</h3>
     {loading ? (
@@ -297,6 +305,7 @@ const DashboardPage = ({ username, profile }) => {
       </div>
     )}
   </div>
+          
         </div>
 
         {/* Bottom Content Grid - Enhanced Portfolio Performance */}
@@ -389,46 +398,29 @@ const DashboardPage = ({ username, profile }) => {
             )}
           </div>
 
-          {/* Contribution Analysis */}
-          <div style={contentCardStyle}>
-            <h3 style={cardTitleStyle}>💡 Contribution Strategy</h3>
-            {predictions && predictions.contribution_analysis ? (
-              <div>
-                {Object.entries(predictions.contribution_analysis).slice(0, 2).map(([key, data]) => (
-                  <div key={key} style={{ marginBottom: '15px', padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '8px' }}>
-                    <div style={{ fontSize: '14px', fontWeight: '600', color: '#2c3e50', marginBottom: '8px' }}>
-                      {key.replace('_', ' ').toUpperCase()} STRATEGY
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                      <div>
-                        <div style={{ fontSize: '12px', color: '#666' }}>Target Income</div>
-                        <div style={{ fontSize: '16px', fontWeight: '600', color: '#3498db' }}>
-                          {formatCurrency(data.target_retirement_income)}/year
-                        </div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: '12px', color: '#666' }}>Extra Monthly</div>
-                        <div style={{ fontSize: '16px', fontWeight: '600', color: '#e74c3c' }}>
-                          {formatCurrency(data.additional_monthly_contribution_needed)}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+          {/* Top 5 Stocks Section (moved here) */}
+          <div style={{ ...contentCardStyle, padding: '20px 24px' }}>
+            <h3 style={cardTitleStyle}>� Top 5 Stocks</h3>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '15px' }}>
+              <thead>
+                <tr style={{ background: '#f5f7fa', color: '#2c3e50' }}>
+                  <th style={{ textAlign: 'left', padding: '8px 4px' }}>Symbol</th>
+                  <th style={{ textAlign: 'left', padding: '8px 4px' }}>Name</th>
+                  <th style={{ textAlign: 'right', padding: '8px 4px' }}>Price ($)</th>
+                  <th style={{ textAlign: 'right', padding: '8px 4px' }}>Change</th>
+                </tr>
+              </thead>
+              <tbody>
+                {topStocks.map((stock) => (
+                  <tr key={stock.symbol} style={{ borderBottom: '1px solid #eee' }}>
+                    <td style={{ padding: '8px 4px', fontWeight: '600', color: '#4285f4' }}>{stock.symbol}</td>
+                    <td style={{ padding: '8px 4px' }}>{stock.name}</td>
+                    <td style={{ padding: '8px 4px', textAlign: 'right' }}>{stock.price.toFixed(2)}</td>
+                    <td style={{ padding: '8px 4px', textAlign: 'right', color: stock.change.startsWith('+') ? '#27ae60' : '#e74c3c', fontWeight: '600' }}>{stock.change}</td>
+                  </tr>
                 ))}
-              </div>
-            ) : (
-              <div style={{ textAlign: 'center', padding: '30px' }}>
-                <div style={{ fontSize: '48px', marginBottom: '15px' }}>🎯</div>
-                <div style={{ color: '#666', marginBottom: '15px' }}>
-                  Personalized contribution strategies will appear here
-                </div>
-                <div style={{ fontSize: '14px', color: '#999', lineHeight: '1.4' }}>
-                  • Complete your profile for personalized strategies<br/>
-                  • AI will analyze optimal contribution amounts<br/>
-                  • Get recommendations for different scenarios
-                </div>
-              </div>
-            )}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -563,3 +555,4 @@ const viewDetailsButtonStyle = {
 };
 
 export default DashboardPage;
+
