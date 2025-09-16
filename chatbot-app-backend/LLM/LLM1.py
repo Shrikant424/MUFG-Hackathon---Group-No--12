@@ -354,8 +354,9 @@ prompt = f"""
 
     """
 from dotenv import load_dotenv
-load_dotenv()
-
+from dotenv import load_dotenv
+env_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.env'))
+load_dotenv(dotenv_path=env_path)
 
 def callLLM1(userMessage: str, userData: dict, username: str = None):
     from openai import OpenAI
@@ -364,12 +365,11 @@ def callLLM1(userMessage: str, userData: dict, username: str = None):
     
     # Database configuration
     db_config = {
-        "host": "localhost",
-        "user": "root", 
-        "password": "Shrikroot*12",
-        "database": "UserData"
+            "host": os.getenv("db_host"),
+            "user": os.getenv("db_user"),
+            "password": os.getenv("db_pass"),
+            "database": os.getenv("db_name")
     }
-    
     context_manager = ContextManager(db_config)
 
     client = OpenAI(
@@ -403,7 +403,7 @@ def callLLM1(userMessage: str, userData: dict, username: str = None):
     messages.append({"role": "user", "content": userMessage})
 
     response = client.chat.completions.create(
-        model="deepseek/deepseek-r1-0528-qwen3-8b",
+        model=model,
         messages=messages
     )
 
@@ -411,9 +411,7 @@ def callLLM1(userMessage: str, userData: dict, username: str = None):
     
     # Save assistant response to context
     result_assistant = context_manager.add_message(username, "assistant", assistant_reply)
-    # print(f"[callLLM1] Assistant message DB update result: {result_assistant}")
 
-    # print("Response generated", conversation_history[-1])
     return assistant_reply
 
 

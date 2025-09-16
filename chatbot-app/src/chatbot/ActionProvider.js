@@ -54,7 +54,7 @@ async extractStockSymbolsFromText(text, userData = {}) {
       }
     }
 
-    const matches = text.match(/\b([A-Z]{2,5})\b/g);
+    const matches = text.match(/\b([A-Z]{4,5})\b/g);
     if (matches) {
       return matches[0];
     }

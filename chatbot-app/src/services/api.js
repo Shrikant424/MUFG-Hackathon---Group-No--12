@@ -177,6 +177,18 @@ export const getSuperannuationPredictions = async (profile, allocation = null) =
     }),
   });
 };
+// services/quotes.js
+export const fetchQuote = async () => {
+  try {
+    const response = await fetch("http://127.0.0.1:8000/quote"); // 👈 your FastAPI proxy
+    if (!response.ok) throw new Error("Failed to fetch quote");
+    return await response.json();
+  } catch (err) {
+    console.error("Error fetching quote:", err);
+    return null;
+  }
+};
+
 
 // Get profile with predictions
 export const getProfileWithPredictions = async (username) => {

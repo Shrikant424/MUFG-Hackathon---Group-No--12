@@ -9,6 +9,8 @@ const DashboardPage = ({ username, profile }) => {
   const [predictions, setPredictions] = useState(null);
   const [loading, setLoading] = useState(true);
   const [predictionError, setPredictionError] = useState(null);
+  const [quote, setQuote] = useState(null);
+  const [quoteError, setQuoteError] = useState(null);
 
   // Fallback placeholders if profile not ready
   // Always use username from props if not present in profile
@@ -77,6 +79,16 @@ const DashboardPage = ({ username, profile }) => {
     loadPredictions();
   }, [profile, username]);
 
+  useEffect(() => {
+    fetch("http://127.0.0.1:8000/quote")  // 👈 Your FastAPI endpoint
+      .then(res => res.json())
+      .then(data => {
+        setQuote(data);
+      })
+      .catch(() => setQuoteError("Could not fetch quote"))
+      .finally(() => setLoading(false));
+  }, []);
+
   // Fetch recommendations (keeping original functionality)
   useEffect(() => {
     const loadRecommendations = async () => {
@@ -96,6 +108,7 @@ const DashboardPage = ({ username, profile }) => {
     };
     loadRecommendations();
   }, [profile]);
+
 
   const formatCurrency = (amount) => {
     // Handle NaN and invalid values
@@ -210,7 +223,7 @@ const DashboardPage = ({ username, profile }) => {
                 <div style={{
                   backgroundColor: retirementProgress > 50 ? '#27ae60' : retirementProgress > 25 ? '#f39c12' : '#3498db',
                   height: '100%',
-                  width: `${Math.max(2, retirementProgress)}%`, // Minimum 2% to show some progress
+                  width: `${Math.max(0.5, retirementProgress)}%`, // Minimum 0.5% to show some progress
                   transition: 'width 0.3s ease'
                 }}></div>
               </div>
@@ -221,107 +234,69 @@ const DashboardPage = ({ username, profile }) => {
             
             {/* Additional milestone indicators */}
             <div style={{ marginTop: '15px', display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#999' }}>
-              <span style={{ color: currentAge >= 30 ? '#27ae60' : '#bdc3c7' }}>30s ✓</span>
-              <span style={{ color: currentAge >= 40 ? '#27ae60' : '#bdc3c7' }}>40s ✓</span>
-              <span style={{ color: currentAge >= 50 ? '#27ae60' : '#bdc3c7' }}>50s ✓</span>
-              <span style={{ color: currentAge >= 60 ? '#27ae60' : '#bdc3c7' }}>60s ✓</span>
+              <span style={{ color: currentAge >= 30 ? '#27ae60' : '#bdc3c7' }}>30s {currentAge >= 30 ? '✓' : ''}</span>
+              <span style={{ color: currentAge >= 40 ? '#27ae60' : '#bdc3c7' }}>40s {currentAge >= 40 ? '✓' : ''}</span>
+              <span style={{ color: currentAge >= 50 ? '#27ae60' : '#bdc3c7' }}>50s {currentAge >= 50 ? '✓' : ''}</span>
+              <span style={{ color: currentAge >= 60 ? '#27ae60' : '#bdc3c7' }}>60s {currentAge >= 60 ? '✓' : ''}</span>
+            </div>
+
+            {/* Progress insights */}
+            <div style={{ marginTop: '15px', padding: '10px', backgroundColor: retirementProgress < 25 ? '#fef9e7' : retirementProgress < 50 ? '#eaf2ff' : '#f0f9ff', borderRadius: '6px', border: '1px solid #dee2e6' }}>
+              <div style={{ fontSize: '12px', fontWeight: '600', color: '#2c3e50', marginBottom: '5px' }}>
+                Progress Insight
+              </div>
+              <div style={{ fontSize: '12px', color: '#666' }}>
+                {retirementProgress < 25 
+                  ? "You're in the early stages of your career. Great time to start building retirement habits!"
+                  : retirementProgress < 50 
+                  ? "You're making solid progress! Consider optimizing your contribution strategy."
+                  : retirementProgress < 75
+                  ? "You're well on your way! Focus on fine-tuning your retirement plan."
+                  : "You're approaching retirement! Time to review your withdrawal strategy."
+                }
+              </div>
             </div>
           </div>
 
-          {/* ML Prediction Results - Fixed */}
-          <div style={contentCardStyle}>
-            <h3 style={cardTitleStyle}>🤖 AI Prediction Results</h3>
-            {loading ? (
-              <div style={{ textAlign: 'center', padding: '20px' }}>
-                <CircularProgress size={30} style={{ color: '#4285f4' }} />
-                <div style={{ marginTop: '10px', fontSize: '14px', color: '#666' }}>
-                  Analyzing your profile...
-                </div>
-              </div>
-            ) : predictionError ? (
-              <div style={{ color: '#e74c3c', fontSize: '14px', padding: '15px', backgroundColor: '#fdf2f2', borderRadius: '8px', border: '1px solid #fadbd8' }}>
-                ⚠️ {predictionError}
-                <div style={{ marginTop: '10px' }}>
-                  <button 
-                    style={{ ...primaryButtonStyle, fontSize: '12px', padding: '6px 12px' }}
-                    onClick={() => navigate("/update-profile")}
-                  >
-                    Complete Profile
-                  </button>
-                </div>
-              </div>
-            ) : predictions && predictions.predictions ? (
-              <div>
-                <div style={{ marginBottom: '20px' }}>
-                  <div style={{ fontSize: '18px', fontWeight: '600', color: '#2c3e50', marginBottom: '5px' }}>
-                    Projected Final Balance
-                  </div>
-                  <div style={{ fontSize: '24px', fontWeight: '700', color: '#27ae60', marginBottom: '10px' }}>
-                    {formatCurrency(predictions.predictions.projected_final_balance)}
-                  </div>
-                  <div style={{ fontSize: '14px', color: '#666' }}>
-                    Expected Annual Return: {formatPercentage(predictions.predictions.expected_annual_return)}
-                  </div>
-                </div>
-
-                {/* Scenarios */}
-                {predictions.scenarios && (
-                  <div style={{ marginBottom: '15px' }}>
-                    <div style={{ fontSize: '16px', fontWeight: '600', color: '#2c3e50', marginBottom: '10px' }}>
-                      Scenario Analysis
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
-                      {Object.entries(predictions.scenarios).map(([scenario, data]) => (
-                        <div key={scenario} style={{ 
-                          padding: '8px', 
-                          borderRadius: '6px', 
-                          backgroundColor: scenario === 'optimistic' ? '#d5f4e6' : scenario === 'pessimistic' ? '#fdf2f2' : '#f8f9fa',
-                          border: `1px solid ${scenario === 'optimistic' ? '#27ae60' : scenario === 'pessimistic' ? '#e74c3c' : '#dee2e6'}`
-                        }}>
-                          <div style={{ fontSize: '12px', textTransform: 'capitalize', fontWeight: '600', marginBottom: '4px', color: '#2c3e50' }}>
-                            {scenario}
-                          </div>
-                          <div style={{ fontSize: '14px', fontWeight: '600', color: scenario === 'optimistic' ? '#27ae60' : scenario === 'pessimistic' ? '#e74c3c' : '#3498db' }}>
-                            {formatCurrency(data.final_balance)}
-                          </div>
-                          <div style={{ fontSize: '10px', color: '#666' }}>
-                            Annual: {formatCurrency(data.annual_retirement_income)}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Confidence Level */}
-                {predictions.model_confidence && (
-                  <div style={{ marginTop: '15px', padding: '10px', backgroundColor: '#f8f9fa', borderRadius: '6px', border: '1px solid #dee2e6' }}>
-                    <div style={{ fontSize: '14px', fontWeight: '600', color: '#2c3e50', marginBottom: '5px' }}>
-                      Prediction Confidence: {predictions.model_confidence.confidence_level || 'Medium'}
-                    </div>
-                    <div style={{ fontSize: '12px', color: '#666' }}>
-                      Model accuracy: {((predictions.model_confidence.overall_confidence || 0.7) * 100).toFixed(0)}%
-                    </div>
-                  </div>
-                )}
-
-                <button style={viewDetailsButtonStyle} onClick={() => console.log('View detailed predictions:', predictions)}>
-                  View Detailed Analysis
-                </button>
-              </div>
-            ) : (
-              <div style={{ color: '#666', textAlign: 'center', padding: '20px' }}>
-                <div style={{ fontSize: '48px', marginBottom: '10px' }}>🔮</div>
-                <div>Complete your profile to see AI predictions</div>
-                <button 
-                  style={{ ...primaryButtonStyle, marginTop: '10px' }}
-                  onClick={() => navigate("/update-profile")}
-                >
-                  Complete Profile
-                </button>
-              </div>
-            )}
-          </div>
+            {/* Quote of the Day - Replaces ML Predictions */}
+  <div style={contentCardStyle}>
+    <h3 style={cardTitleStyle}>📖 Quote of the Day</h3>
+    {loading ? (
+      <div style={{ textAlign: 'center', padding: '20px' }}>
+        <CircularProgress size={30} style={{ color: '#4285f4' }} />
+        <div style={{ marginTop: '10px', fontSize: '14px', color: '#666' }}>
+          Fetching inspiration...
+        </div>
+      </div>
+    ) : quoteError ? (
+      <div
+        style={{
+          color: '#e74c3c',
+          fontSize: '14px',
+          padding: '15px',
+          backgroundColor: '#fdf2f2',
+          borderRadius: '8px',
+          border: '1px solid #fadbd8'
+        }}
+      >
+        ⚠️ {quoteError}
+      </div>
+    ) : quote ? (
+      <div>
+        <p style={{ fontSize: '18px', fontStyle: 'italic', color: '#2c3e50', marginBottom: '10px' }}>
+          “{quote.quote}”
+        </p>
+        <p style={{ fontSize: '14px', color: '#666', textAlign: 'right' }}>
+          — {quote.author || "Unknown"}
+        </p>
+      </div>
+    ) : (
+      <div style={{ color: '#666', textAlign: 'center', padding: '20px' }}>
+        <div style={{ fontSize: '48px', marginBottom: '10px' }}>💡</div>
+        <div>No quote available right now</div>
+      </div>
+    )}
+  </div>
         </div>
 
         {/* Bottom Content Grid - Enhanced Portfolio Performance */}

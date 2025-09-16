@@ -1,513 +1,15 @@
-# from fastapi import FastAPI, HTTPException
-# from fastapi.responses import JSONResponse
-# from pydantic import BaseModel
-# from typing import List, Dict, Any
-# from openai import OpenAI
-# import json  # or the DeepSeek client
-# from LLM.LLM1 import callLLM1
-# from LLM.LLM2 import callLLM2
-# from shared_context import get_conversation_json, get_recent_history
-# from fastapi.middleware.cors import CORSMiddleware
-# import pandas as pd
-# import numpy as np
-# import yfinance as yf
-# from sklearn.preprocessing import MinMaxScaler
-# from tensorflow.keras.models import load_model
-# from datetime import datetime, timedelta
-# import os
-# import mysql.connector
-# from fastapi import Depends
-# from fastapi import FastAPI, Query
-# from fastapi.responses import JSONResponse
-
-# # --- DB CONNECTION ---
-# def get_db():
-#     conn = mysql.connector.connect(
-#         host="localhost",
-#         user="root",
-#         password="Shrikroot*12",
-#         database="UserData"
-#     )
-#     return conn
-
-# def init_db():
-#     conn = mysql.connector.connect(
-#         host="localhost",
-#         user="root",
-#         password="Shrikroot*12"
-#     )
-#     cursor = conn.cursor()
-
-#     # Create database if not exists
-#     cursor.execute("CREATE DATABASE IF NOT EXISTS UserData")
-#     cursor.execute("USE UserData")
-
-#     # Create users table
-#     cursor.execute("""
-#     CREATE TABLE IF NOT EXISTS users (
-#         id INT AUTO_INCREMENT PRIMARY KEY,
-#         username VARCHAR(100) NOT NULL UNIQUE,
-#         password VARCHAR(255) NOT NULL,
-#         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-#     )
-#     """)
-
-#     # Create profiles table
-#     cursor.execute("""
-#     CREATE TABLE IF NOT EXISTS profiles (
-#         id INT AUTO_INCREMENT PRIMARY KEY,
-#         username VARCHAR(100) NOT NULL UNIQUE,
-#         name VARCHAR(100),
-#         age INT,
-#         gender VARCHAR(20),
-#         occupation VARCHAR(100),
-#         annualIncome DECIMAL(15,2),
-#         retirementAgeGoal INT,
-#         riskTolerance VARCHAR(20),
-#         investmentKnowledge VARCHAR(50),
-#         financialGoals TEXT,
-#         email VARCHAR(100),
-#         phone VARCHAR(20),
-#         country VARCHAR(100),
-#         employmentStatus VARCHAR(50),
-#         currentSavings DECIMAL(15,2),
-#         maritalStatus VARCHAR(50),
-#         numberOfDependents INT,
-#         educationLevel VARCHAR(100),
-#         healthStatus VARCHAR(50),
-#         homeOwnershipStatus VARCHAR(50),
-#         monthlyExpenses DECIMAL(15,2),
-#         investmentExperience VARCHAR(50),
-#         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-#         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-#         CONSTRAINT fk_user FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE
-#     )
-#     """)
-
-#     # Create chat_history table
-#     cursor.execute("""
-#     CREATE TABLE IF NOT EXISTS chat_history (
-#         id INT AUTO_INCREMENT PRIMARY KEY,
-#         username VARCHAR(100) NOT NULL UNIQUE,
-#         context JSON,
-#         CONSTRAINT fk_users FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE
-#     )
-#     """)
-
-#     conn.commit()
-#     cursor.close()
-#     conn.close()
-
-# # --- Models ---
-# class UserSignup(BaseModel):
-#     username: str
-#     password: str
-
-# class UserLogin(BaseModel):
-#     username: str
-#     password: str
-
-# class ChatHistory(BaseModel):
-#     context: list  
-
-# class UserProfile(BaseModel):
-#     name: str = ""
-#     age: int
-#     gender: str
-#     country: str = ""
-#     employmentStatus: str = ""
-#     occupation: str = ""
-#     annualIncome: float
-#     currentSavings: float = 0
-#     monthlyExpenses: float = 0
-#     retirementAgeGoal: int = 65
-#     riskTolerance: str = "Medium"
-#     maritalStatus: str = "Single"
-#     numberOfDependents: int = 0
-#     educationLevel: str = "Bachelor's"
-#     healthStatus: str = "Good"
-#     homeOwnershipStatus: str = "Own"
-#     financialGoals: str = "Retirement"
-#     investmentExperience: str = "Intermediate"
-#     investmentKnowledge: str = ""
-#     email: str = ""
-#     phone: str = ""
-
-
-# from contextlib import asynccontextmanager
-# from fastapi import FastAPI
-
-# @asynccontextmanager
-# async def lifespan(app: FastAPI):
-#     # --- Startup ---
-#     init_db()
-#     print("Database initialized.")
-
-#     yield  # 👈 app runs here
-
-#     # --- Shutdown ---
-#     print("App shutting down...")
-
-# app = FastAPI(lifespan=lifespan)
-
-# app.add_middleware(
-#     CORSMiddleware,
-#     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],  # React dev server (Vite)
-#     allow_credentials=True,
-#     allow_methods=["*"],   # allow POST, GET, OPTIONS etc.
-#     allow_headers=["*"],
-# )
-
-# # Load the ML model once at startup
-# try:
-#     model_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'Share_Prediction.h5')
-#     stock_model = load_model(model_path)
-#     print(f"Stock prediction model loaded successfully from {model_path}")
-# except Exception as e:
-#     print(f"Error loading model: {e}")
-#     stock_model = None
-
-# class ChatMessage(BaseModel):
-#     message: str
-#     userData: dict = {}
-
-# class PredictionRequest(BaseModel):
-#     symbol: str
-#     years: int = 2
-
-
-
-
-# @app.post("/chat")
-# def chat(request: ChatMessage):
-#     # If user asks for profile or to show data, return userData directly
-#     msg = request.message.lower().strip()
-#     if msg in ["profile", "show my data", "show my profile"]:
-#         if request.userData:
-#             profile_str = "\n".join([f"{k}: {v}" for k, v in request.userData.items()])
-#             return {"reply": f"Your profile:\n{profile_str}"}
-#         else:
-#             return {"reply": "No user profile data found."}
-#     # Otherwise, pass userData to LLM1 if needed
-#     response = callLLM1(request.message, request.userData)
-#     return {"reply": response}
-
-
-# @app.post("/explain")
-# def explain(request: ChatMessage):
-#     response = callLLM2(request.message, request.userData)
-#     return {"reply": response}
-
-# # Stock prediction functions
-# def get_stock_data(symbol, start_date, end_date):
-#     try:
-#         ticker = yf.Ticker(symbol)
-#         data = ticker.history(start=start_date, end=end_date)
-#         return data
-#     except Exception as e:
-#         raise HTTPException(status_code=400, detail=f"Error fetching data: {str(e)}")
-
-# def prepare_data(stock_data, lookback_period=60):
-#     scaler = MinMaxScaler(feature_range=(0, 1))
-#     scaled_data = scaler.fit_transform(stock_data['Close'].values.reshape(-1, 1))
-#     return scaler
-
-# def predict_future_years_realistic(model, stock_data, scaler, years=2, lookback_period=60):
-#     last_sequence = stock_data['Close'].values[-lookback_period:]
-#     last_sequence_scaled = scaler.transform(last_sequence.reshape(-1, 1))
-    
-#     trading_days_per_year = 252
-#     total_days = years * trading_days_per_year
-    
-#     last_date = stock_data.index[-1]
-#     future_dates = pd.bdate_range(start=last_date + timedelta(days=1), periods=total_days)
-    
-#     predictions = []
-#     current_sequence = last_sequence_scaled.flatten()
-    
-#     # Calculate historical volatility
-#     historical_returns = np.diff(np.log(stock_data['Close'].values[-252:]))
-#     daily_volatility = np.std(historical_returns)
-    
-#     for i in range(total_days):
-#         input_sequence = current_sequence[-lookback_period:].reshape(1, lookback_period, 1)
-#         next_pred_scaled = model.predict(input_sequence, verbose=0)
-#         next_pred = scaler.inverse_transform(next_pred_scaled)[0][0]
-        
-#         # Add realistic volatility
-#         if i > 0:
-#             random_return = np.random.normal(0, daily_volatility)
-#             volatility_adjustment = next_pred * random_return
-#             next_pred = next_pred + volatility_adjustment
-            
-#             prev_price = predictions[-1] if predictions else stock_data['Close'].iloc[-1]
-#             max_change = prev_price * 0.2
-#             next_pred = np.clip(next_pred, prev_price - max_change, prev_price + max_change)
-#             next_pred = max(next_pred, prev_price * 0.5)
-        
-#         predictions.append(next_pred)
-#         next_pred_scaled = scaler.transform([[next_pred]])[0][0]
-#         current_sequence = np.append(current_sequence, next_pred_scaled)
-    
-#     return future_dates, np.array(predictions)
-
-# @app.post("/predict-stock")
-# async def predict_stock(request: PredictionRequest):
-#     if stock_model is None:
-#         raise HTTPException(status_code=500, detail="Stock prediction model not loaded")
-    
-#     try:
-#         # Fetch historical data
-#         current_date = datetime.now()
-#         start_date = (current_date - timedelta(days=3*365 + 120)).strftime("%Y-%m-%d")
-#         end_date = current_date.strftime("%Y-%m-%d")
-        
-#         stock_data = get_stock_data(request.symbol, start_date, end_date)
-        
-#         if stock_data.empty:
-#             raise HTTPException(status_code=404, detail="No data found for the given symbol")
-        
-#         # Prepare data
-#         scaler = prepare_data(stock_data)
-        
-#         # Make predictions
-#         future_dates, future_predictions = predict_future_years_realistic(
-#             stock_model, stock_data, scaler, request.years
-#         )
-        
-#         # Get historical data for chart (last 2 years)
-#         historical_cutoff = datetime.now() - timedelta(days=730)
-#         if stock_data.index.tz is not None:
-#             historical_cutoff = historical_cutoff.replace(tzinfo=stock_data.index.tz)
-        
-#         historical_mask = stock_data.index >= historical_cutoff
-#         historical_dates = stock_data.index[historical_mask]
-#         historical_prices = stock_data['Close'].values[historical_mask]
-        
-#         # Calculate uncertainty bands
-#         prediction_std = np.std(np.diff(future_predictions)) * np.sqrt(np.arange(len(future_predictions)))
-#         uncertainty_upper = future_predictions + prediction_std
-#         uncertainty_lower = future_predictions - prediction_std
-        
-#         # Calculate statistics
-#         current_price = stock_data['Close'].iloc[-1]
-#         final_price = future_predictions[-1]
-#         total_return = ((final_price - current_price) / current_price) * 100
-#         annualized_return = (((final_price / current_price) ** (1/request.years)) - 1) * 100
-        
-#         # Calculate volatility and max drawdown
-#         daily_returns = np.diff(future_predictions) / future_predictions[:-1]
-#         predicted_volatility = np.std(daily_returns) * np.sqrt(252) * 100
-        
-#         cumulative_returns = np.cumprod(1 + daily_returns)
-#         max_drawdown = np.min(np.minimum.accumulate(cumulative_returns / np.maximum.accumulate(cumulative_returns)) - 1) * 100
-        
-#         return {
-#             "historical_dates": [date.strftime("%Y-%m-%d") for date in historical_dates],
-#             "historical_prices": historical_prices.tolist(),
-#             "future_dates": [date.strftime("%Y-%m-%d") for date in future_dates],
-#             "future_predictions": future_predictions.tolist(),
-#             "uncertainty_upper": uncertainty_upper.tolist(),
-#             "uncertainty_lower": uncertainty_lower.tolist(),
-#             "stats": {
-#                 "current_price": float(current_price),
-#                 "final_price": float(final_price),
-#                 "total_return": float(total_return),
-#                 "annualized_return": float(annualized_return),
-#                 "volatility": float(predicted_volatility),
-#                 "max_drawdown": float(max_drawdown)
-#             }
-#         }
-        
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=str(e))
-
-
-
-# # --- Signup ---
-# @app.post("/signup")
-# def signup(user: UserSignup):
-#     conn = get_db()
-#     cursor = conn.cursor(dictionary=True)
-
-#     cursor.execute("SELECT * FROM users WHERE username=%s", (user.username,))
-#     if cursor.fetchone():
-#         conn.close()
-#         raise HTTPException(status_code=400, detail="Username already exists")
-
-#     cursor.execute("INSERT INTO users (username, password) VALUES (%s, %s)", 
-#                    (user.username, user.password))
-#     conn.commit()
-#     conn.close()
-#     return {"message": "User created successfully"}
-
-
-# # --- Login ---
-# @app.post("/login")
-# def login(user: UserLogin):
-#     conn = get_db()
-#     cursor = conn.cursor(dictionary=True)
-
-#     cursor.execute("SELECT * FROM users WHERE username=%s AND password=%s",
-#                    (user.username, user.password))
-#     result = cursor.fetchone()
-#     conn.close()
-
-#     if not result:
-#         raise HTTPException(status_code=401, detail="Invalid credentials")
-
-#     return {"message": "Login successful", "username": user.username}
-
-
-# # --- Get Profile ---
-# @app.get("/profile/{username}")
-# def get_profile(username: str):
-#     conn = get_db()
-#     cursor = conn.cursor(dictionary=True)
-#     cursor.execute("SELECT * FROM profiles WHERE username=%s", (username,))
-#     profile = cursor.fetchone()
-#     conn.close()
-#     if not profile:
-#         return {}
-#     return profile
-
-
-# # --- Save/Update Profile ---
-# @app.post("/profile/{username}")
-# def save_profile(username: str, profile: UserProfile):
-#     if not username:
-#         raise HTTPException(status_code=400, detail="Username is required.")
-
-#     conn = get_db()
-#     cursor = conn.cursor(dictionary=True)
-
-#     # Check if user exists in 'users' table
-#     cursor.execute("SELECT * FROM users WHERE username=%s", (username,))
-#     user_exists = cursor.fetchone()
-#     if not user_exists:
-#         cursor.close()
-#         conn.close()
-#         raise HTTPException(status_code=400, detail="User does not exist.")
-
-#     # Check if profile exists
-#     cursor.execute("SELECT * FROM profiles WHERE username=%s", (username,))
-#     profile_exists = cursor.fetchone()
-
-#     if profile_exists:
-#         cursor.execute("""
-#             UPDATE profiles SET name=%s, age=%s, gender=%s, occupation=%s, annualIncome=%s,
-#             retirementAgeGoal=%s, riskTolerance=%s, investmentKnowledge=%s, financialGoals=%s,
-#             email=%s, phone=%s, country=%s, employmentStatus=%s, currentSavings=%s,
-#             maritalStatus=%s, numberOfDependents=%s, educationLevel=%s, healthStatus=%s,
-#             homeOwnershipStatus=%s, monthlyExpenses=%s, investmentExperience=%s
-#             WHERE username=%s
-#         """, (
-#             profile.name, profile.age, profile.gender, profile.occupation, profile.annualIncome,
-#             profile.retirementAgeGoal, profile.riskTolerance, profile.investmentKnowledge, profile.financialGoals,
-#             profile.email, profile.phone, profile.country, profile.employmentStatus, profile.currentSavings,
-#             profile.maritalStatus, profile.numberOfDependents, profile.educationLevel, profile.healthStatus,
-#             profile.homeOwnershipStatus, profile.monthlyExpenses, profile.investmentExperience,
-#             username
-#         ))
-#     else:
-#         # Insert
-#         cursor.execute("""
-#             INSERT INTO profiles (username, name, age, gender, occupation, annualIncome,
-#             retirementAgeGoal, riskTolerance, investmentKnowledge, financialGoals,
-#             email, phone, country, employmentStatus, currentSavings,
-#             maritalStatus, numberOfDependents, educationLevel, healthStatus,
-#             homeOwnershipStatus, monthlyExpenses, investmentExperience)
-#             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-#         """, (
-#             username, profile.name, profile.age, profile.gender, profile.occupation, profile.annualIncome,
-#             profile.retirementAgeGoal, profile.riskTolerance, profile.investmentKnowledge, profile.financialGoals,
-#             profile.email, profile.phone, profile.country, profile.employmentStatus, profile.currentSavings,
-#             profile.maritalStatus, profile.numberOfDependents, profile.educationLevel, profile.healthStatus,
-#             profile.homeOwnershipStatus, profile.monthlyExpenses, profile.investmentExperience
-#         ))
-
-#     conn.commit()
-#     cursor.close()
-#     conn.close()
-
-#     return {"message": "Profile saved successfully"}
-
-# @app.get("/api/chat-history/{username}")
-# def get_chat_history(username: str):
-#     try:
-#         conn = get_db()
-#         cursor = conn.cursor(dictionary=True)
-#         cursor.execute("SELECT context FROM chat_history WHERE username = %s", (username,))
-#         row = cursor.fetchone()
-#         cursor.close()
-#         conn.close()
-
-#         if not row:
-#             return {"context": []}
-
-#         return {"context": row["context"] or []}
-
-#     except Exception as e:
-#         print(e)
-#         raise HTTPException(status_code=500, detail="Failed to fetch chat history")
-
-# @app.post("/api/store-history/{username}")
-# def store_chat_history(username: str, chat_history: ChatHistory):
-#     try:
-#         conn = get_db()
-#         cursor = conn.cursor()
-
-#         # MySQL JSON column accepts Python dict/list if converted to JSON string
-#         context_json = json.dumps(chat_history.context)
-
-#         # Check if user already has a row
-#         cursor.execute("SELECT username FROM chat_history WHERE username = %s", (username,))
-#         row = cursor.fetchone()
-
-#         if row:
-#             # Update existing row
-#             cursor.execute(
-#                 "UPDATE chat_history SET context = %s WHERE username = %s",
-#                 (context_json, username)
-#             )
-#         else:
-#             # Insert new row
-#             cursor.execute(
-#                 "INSERT INTO chat_history (username, context) VALUES (%s, %s)",
-#                 (username, context_json)
-#             )
-
-#         conn.commit()
-#         cursor.close()
-#         conn.close()
-#         return {"status": "success", "message": "Chat history saved."}
-
-#     except Exception as e:
-#         print(e)
-#         raise HTTPException(status_code=500, detail="Failed to store chat history")
-
-# @app.get("/api/current-context")
-# def get_current_context():
-#     """Get the current global conversation context"""
-#     try:
-#         context = get_recent_history(50)  # Get last 50 messages
-#         return {"context": context}
-#     except Exception as e:
-#         print(f"Error getting context: {e}")
-#         raise HTTPException(status_code=500, detail="Failed to get conversation context")
-
-# @app.get("/")
-# async def root():
-#     return {"message": "MUFG Financial Assistant API is running"}
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import List, Dict, Any
 from openai import OpenAI
-import json  # or the DeepSeek client
+import json
+from model import SuperannuationPredictor
+import logging
+
+import requests  # or the DeepSeek client
 from LLM.LLM1 import callLLM1
 from LLM.LLM2 import callLLM2
-from LLM.LLM3 import callLLM3
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 import numpy as np
@@ -520,16 +22,19 @@ import mysql.connector
 from fastapi import Depends
 from fastapi import FastAPI, Query
 from fastapi.responses import JSONResponse
-from model import SuperannuationPredictor
-import logging
+from dotenv import load_dotenv
+env_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.env'))
+load_dotenv(dotenv_path=env_path)
+API_KEY = os.getenv("Quotes_API")
+
 
 # --- DB CONNECTION ---
 def get_db():
     conn = mysql.connector.connect(
-        host="localhost",
-        user="root",
-        password="Shrikroot*12",
-        database="UserData"
+        host=os.getenv("db_host"),
+        user=os.getenv("db_user"),
+        password=os.getenv("db_pass"),
+        database=os.getenv("db_name")
     )
     return conn
 def init_db():
@@ -600,6 +105,20 @@ def init_db():
     cursor.close()
     conn.close()
 
+from contextlib import asynccontextmanager
+from fastapi import FastAPI
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # --- Startup ---
+    init_db()
+    print("Database initialized.")
+
+    yield  # 👈 app runs here
+
+    # --- Shutdown ---
+    print("App shutting down...")
+
 # --- Models ---
 class UserSignup(BaseModel):
     username: str
@@ -635,26 +154,12 @@ class UserProfile(BaseModel):
     email: str = ""
     phone: str = ""
 
-from contextlib import asynccontextmanager
-from fastapi import FastAPI
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # --- Startup ---
-    init_db()
-    print("Database initialized.")
-
-    yield  # 👈 app runs here
-
-    # --- Shutdown ---
-    print("App shutting down...")
 
 app = FastAPI(lifespan=lifespan)
-
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for debugging
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],  # React dev server (Vite)
     allow_credentials=True,
     allow_methods=["*"],   # allow POST, GET, OPTIONS etc.
     allow_headers=["*"],
@@ -672,114 +177,65 @@ except Exception as e:
 class ChatMessage(BaseModel):
     message: str
     userData: dict = {}
-    username: str = ""  # Add username for context management
-
-class LLM3Request(BaseModel):
-    message: str
-    userData: dict = {}
 
 class PredictionRequest(BaseModel):
     symbol: str
     years: int = 2
 
-# class ChatRequest(BaseModel):
-#     conversation: List[ChatMessage]
-#     query: str
-#     max_history: int = 10
-
-
-# def build_context_messages(conversation: List[Dict[str, Any]], current_query: str, max_history: int = 10):
-#     """Convert chat history + new query into OpenAI-style messages."""
-#     trimmed_history = conversation[-max_history:]
-#     history_text = "\n".join([f"{m['role'].capitalize()}: {m['content']}" for m in trimmed_history])
-
-#     messages = [
-#         {
-#             "role": "system",
-#             "content": f"Here is the previous conversation for context:\n{history_text}\n"
-#         },
-#         {
-#             "role": "user",
-#             "content": current_query
-#         }
-#     ]
-#     return messages
-
-
-
 @app.post("/chat")
 def chat(request: ChatMessage):
     # If user asks for profile or to show data, return userData directly
     msg = request.message.lower().strip()
-    if msg in ["profile", "show my data", "show me my profile","show my profile","who am i"]:
+    if msg in ["profile", "show my data", "show my profile","profile","my profile","show profile","show me my profile","who am i","whoami"]:
         if request.userData:
             profile_str = "\n".join([f"{k}: {v}" for k, v in request.userData.items()])
             return {"reply": f"Your profile:\n{profile_str}"}
         else:
             return {"reply": "No user profile data found."}
-    # Otherwise, pass userData and username to LLM1
-    response = callLLM1(request.message, request.userData, request.username)
-    return {"reply": response}
+    
+    # Get username from userData if available
+    username = request.userData.get("username") if request.userData else None
+    
+    # Call LLM1 to get the main response
+    llm1_response = callLLM1(request.message, request.userData, username)
+    
+    # Call LLM3 to extract stock symbols and get predictions
+    from LLM.LLM3 import callLLM3
+    llm3_result = callLLM3(userMessage=request.message, userData=request.userData)
+    
+    # Return both responses
+    return {
+        "reply": llm1_response,
+        "stock_analysis": llm3_result if llm3_result and llm3_result.get("stock_symbol") else None
+    }
 
 
 @app.post("/explain")
 def explain(request: ChatMessage):
-    # Get the financial advice from LLM2
-    llm2_response = callLLM2(request.message, request.userData, request.username)
-    
-    # Pass the LLM2 response to LLM3 to extract stock symbols and get predictions
-    llm3_result = callLLM3(
-        userMessage=request.message,
-        llm2_response=llm2_response,
-        userData=request.userData
-    )
-    
-    # Prepare the response
-    response_data = {
-        "reply": llm2_response,
-        "stock_analysis": llm3_result if llm3_result.get("stock_symbol") else None
-    }
-    
-    return response_data
+    response = callLLM2(request.message, request.userData)
+    return {"reply": response}
 
 @app.post("/llm3")
-def llm3_endpoint(request: LLM3Request):
-    try:
-        print(f"LLM3 endpoint called with: {request.message}, userData: {request.userData}")
-        
-        # Call LLM3 to extract relevant info
-        response = callLLM3(userMessage=request.message, userData=request.userData)
-        
-        print(f"LLM3 response: {response}")
-
-        # Handle both old string format and new dict format
-        if isinstance(response, dict):
-            # New format - return structured response
-            if not response or not response.get("stock_symbol"):
-                return {"reply": "", "stock_analysis": None}
-            return {"reply": response.get("stock_symbol", ""), "stock_analysis": response}
-        else:
-            # Old format - response is a string (stock symbol or empty)
-            if not response or response.strip() == "" or response.lower() in ["none", "null", "empty"]:
-                return {"reply": "", "stock_analysis": None}
-            return {"reply": response, "stock_analysis": None}
-    
-    except Exception as e:
-        print(f"Error in LLM3 endpoint: {e}")
-        import traceback
-        traceback.print_exc()
-        # Return a fallback response compatible with the old format
-        return {"reply": "", "stock_analysis": None, "error": str(e)}
-
+def llm3_endpoint(request: ChatMessage):
+    from LLM.LLM3 import callLLM3
+    result = callLLM3(userMessage=request.message, userData=request.userData)
+    return result
 
 # Stock prediction functions
 def get_stock_data(symbol, start_date, end_date):
     try:
         ticker = yf.Ticker(symbol)
         data = ticker.history(start=start_date, end=end_date)
+        
+        # Check if data is empty or invalid
+        if data.empty:
+            raise HTTPException(status_code=404, detail=f"No data found for symbol '{symbol}'. Symbol may be invalid or delisted.")
+            
         return data
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error fetching data: {str(e)}")
+        if "possibly delisted" in str(e) or "no price data found" in str(e):
+            raise HTTPException(status_code=404, detail=f"Symbol '{symbol}' not found or possibly delisted")
+        raise HTTPException(status_code=400, detail=f"Error fetching data for '{symbol}': {str(e)}")
 
 def prepare_data(stock_data, lookback_period=60):
     scaler = MinMaxScaler(feature_range=(0, 1))
@@ -827,91 +283,61 @@ def predict_future_years_realistic(model, stock_data, scaler, years=2, lookback_
 
 @app.post("/predict-stock")
 async def predict_stock(request: PredictionRequest):
+    # Always return 200 OK with error message in JSON if anything fails
+    if stock_model is None:
+        return {"error": True, "message": "Stock prediction model not loaded"}
+
+    # Validate stock symbol
+    symbol = request.symbol.upper().strip()
+    if not symbol or len(symbol) < 2 or len(symbol) > 5 or not symbol.isalpha():
+        return {"error": True, "message": f"Invalid stock symbol: {request.symbol}"}
+
     try:
-        # Check if model is loaded
-        if stock_model is None:
-            return {
-                "error": "Stock prediction model not available",
-                "message": f"Cannot predict {request.symbol} - model not loaded",
-                "historical_dates": [],
-                "historical_prices": [],
-                "future_dates": [],
-                "future_predictions": [],
-                "uncertainty_upper": [],
-                "uncertainty_lower": [],
-                "stats": {
-                    "current_price": 0,
-                    "final_price": 0,
-                    "total_return": 0,
-                    "annualized_return": 0,
-                    "volatility": 0,
-                    "max_drawdown": 0
-                }
-            }
-        
         # Fetch historical data
         current_date = datetime.now()
         start_date = (current_date - timedelta(days=3*365 + 120)).strftime("%Y-%m-%d")
         end_date = current_date.strftime("%Y-%m-%d")
-        
-        print(f"Fetching stock data for {request.symbol} from {start_date} to {end_date}")
-        stock_data = get_stock_data(request.symbol, start_date, end_date)
-        
+
+        stock_data = get_stock_data(symbol, start_date, end_date)
+
         if stock_data.empty:
-            return {
-                "error": f"No data found for symbol {request.symbol}",
-                "message": f"Stock symbol {request.symbol} not found or delisted",
-                "historical_dates": [],
-                "historical_prices": [],
-                "future_dates": [],
-                "future_predictions": [],
-                "uncertainty_upper": [],
-                "uncertainty_lower": [],
-                "stats": {
-                    "current_price": 0,
-                    "final_price": 0,
-                    "total_return": 0,
-                    "annualized_return": 0,
-                    "volatility": 0,
-                    "max_drawdown": 0
-                }
-            }
-        
+            return {"error": True, "message": "No data found for the given symbol"}
+
         # Prepare data
         scaler = prepare_data(stock_data)
-        
+
         # Make predictions
         future_dates, future_predictions = predict_future_years_realistic(
             stock_model, stock_data, scaler, request.years
         )
-        
+
         # Get historical data for chart (last 2 years)
         historical_cutoff = datetime.now() - timedelta(days=730)
         if stock_data.index.tz is not None:
             historical_cutoff = historical_cutoff.replace(tzinfo=stock_data.index.tz)
-        
+
         historical_mask = stock_data.index >= historical_cutoff
         historical_dates = stock_data.index[historical_mask]
         historical_prices = stock_data['Close'].values[historical_mask]
-        
+
         # Calculate uncertainty bands
         prediction_std = np.std(np.diff(future_predictions)) * np.sqrt(np.arange(len(future_predictions)))
         uncertainty_upper = future_predictions + prediction_std
         uncertainty_lower = future_predictions - prediction_std
-        
+
         # Calculate statistics
         current_price = stock_data['Close'].iloc[-1]
         final_price = future_predictions[-1]
         total_return = ((final_price - current_price) / current_price) * 100
         annualized_return = (((final_price / current_price) ** (1/request.years)) - 1) * 100
-        
+
         # Calculate volatility and max drawdown
         daily_returns = np.diff(future_predictions) / future_predictions[:-1]
         predicted_volatility = np.std(daily_returns) * np.sqrt(252) * 100
-        
+
         cumulative_returns = np.cumprod(1 + daily_returns)
         max_drawdown = np.min(np.minimum.accumulate(cumulative_returns / np.maximum.accumulate(cumulative_returns)) - 1) * 100
-        
+
         return {
             "historical_dates": [date.strftime("%Y-%m-%d") for date in historical_dates],
             "historical_prices": historical_prices.tolist(),
@@ -926,29 +352,15 @@ async def predict_stock(request: PredictionRequest):
                 "annualized_return": float(annualized_return),
                 "volatility": float(predicted_volatility),
                 "max_drawdown": float(max_drawdown)
-            }
+            },
+            "error": False
         }
-        
+
+    except HTTPException as he:
+        # Custom error from get_stock_data
+        return {"error": True, "message": str(he.detail)}
     except Exception as e:
-        print(f"Error in stock prediction: {e}")
-        return {
-            "error": f"Prediction failed: {str(e)}",
-            "message": f"Unable to predict {request.symbol} due to technical error",
-            "historical_dates": [],
-            "historical_prices": [],
-            "future_dates": [],
-            "future_predictions": [],
-            "uncertainty_upper": [],
-            "uncertainty_lower": [],
-            "stats": {
-                "current_price": 0,
-                "final_price": 0,
-                "total_return": 0,
-                "annualized_return": 0,
-                "volatility": 0,
-                "max_drawdown": 0
-            }
-        }
+        return {"error": True, "message": f"Prediction failed: {str(e)}"}
 
 
 
@@ -1115,66 +527,24 @@ def store_chat_history(username: str, chat_history: ChatHistory):
         print(e)
         raise HTTPException(status_code=500, detail="Failed to store chat history")
 
-@app.delete("/api/chat-history/{username}")
-def clear_chat_history(username: str):
-    """Clear conversation context for a user"""
-    try:
-        from LLM.context_manager import ContextManager
-        
-        db_config = {
-            "host": "localhost",
-            "user": "root",
-            "password": "Shrikroot*12", 
-            "database": "UserData"
-        }
-        
-        context_manager = ContextManager(db_config)
-        success = context_manager.clear_context(username)
-        
-        if success:
-            return {"status": "success", "message": f"Chat history cleared for {username}"}
-        else:
-            raise HTTPException(status_code=500, detail="Failed to clear chat history")
-            
-    except Exception as e:
-        print(e)
-        raise HTTPException(status_code=500, detail="Failed to clear chat history")
-
-@app.get("/api/context-stats/{username}")
-def get_context_stats(username: str):
-    """Get statistics about user's conversation context"""
-    try:
-        from LLM.context_manager import ContextManager
-        
-        db_config = {
-            "host": "localhost",
-            "user": "root",
-            "password": "Shrikroot*12",
-            "database": "UserData"
-        }
-        
-        context_manager = ContextManager(db_config)
-        context = context_manager.load_context(username)
-        
-        user_messages = len([msg for msg in context if msg.get("role") == "user"])
-        assistant_messages = len([msg for msg in context if msg.get("role") == "assistant"])
-        total_messages = len(context)
-        
-        return {
-            "username": username,
-            "total_messages": total_messages,
-            "user_messages": user_messages,
-            "assistant_messages": assistant_messages,
-            "context_available": total_messages > 0
-        }
-        
-    except Exception as e:
-        print(e)
-        raise HTTPException(status_code=500, detail="Failed to get context statistics")
-
 @app.get("/")
 async def root():
     return {"message": "MUFG Financial Assistant API is running"}
+
+@app.get("/quote")
+def get_quote():
+    url = "https://api.api-ninjas.com/v1/quotes"
+    headers = {"X-Api-Key": API_KEY}
+    response = requests.get(url, headers=headers)
+
+    if response.status_code != 200:
+        return {"error": "Failed to fetch quote", "status": response.status_code}
+
+    quotes = response.json()  # this is a list
+    if quotes:
+        return {"quote": quotes[0].get("quote"), "author": quotes[0].get("author")}
+    return {"quote": "No quote available", "author": ""}
+
 
 # Initialize the ML model at startup (add this after existing model loading)
 superannuation_predictor = SuperannuationPredictor()
