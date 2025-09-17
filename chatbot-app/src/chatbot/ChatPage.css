@@ -1,4 +1,3 @@
-/* Make chatbot expand to fill available space */
 .react-chatbot-kit-chat-container {
   height: 100% !important;
   width: 100% !important;
@@ -11,7 +10,6 @@
   position: relative !important;
 }
 
-/* Chat message list should scroll and take all space above input */
 .react-chatbot-kit-chat-inner-container {
   flex: 1 !important;
   display: flex !important;
@@ -29,7 +27,6 @@
   max-height: none !important;
 }
 
-/* Ensure message container scrolls to bottom when new messages arrive */
 .react-chatbot-kit-chat-message-container::-webkit-scrollbar {
   width: 6px;
 }

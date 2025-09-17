@@ -35,7 +35,6 @@ const StockChart = (props) => {
     );
   }
 
-  // Format data for Chart.js
   const chartData = {
     labels: [...predictionData.historical_dates, ...predictionData.future_dates],
     datasets: [

@@ -14,11 +14,9 @@ const ChatPage = (props) => {
   const [chatHistory, setChatHistory] = useState([]);
 const handleGoBack = async () => {
     try {
-      // Get current global conversation context from backend
       const contextResponse = await fetch("http://127.0.0.1:8000/api/current-context");
       const contextData = await contextResponse.json();
 
-      // Store the global conversation context
       await fetch("http://127.0.0.1:8000/api/store-history/${profile.username}", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -27,7 +25,6 @@ const handleGoBack = async () => {
 
       console.log("Global conversation context saved:", contextData.context);
 
-      // Navigate back (could be to dashboard or previous page)
       navigate(-1);
     } catch (err) {
       console.error("Failed to save conversation context", err);

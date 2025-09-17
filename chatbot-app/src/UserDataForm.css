@@ -1,13 +1,13 @@
-/* Container for the form */
+
 .user-form {
-  max-width: 700px; /* Wider for desktop */
-  margin: 80px auto; /* Centered with extra top space */
+  max-width: 700px; 
+  margin: 80px auto; 
   padding: 40px;
   background: #ffffff;
   border-radius: 16px;
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
   display: grid;
-  grid-template-columns: 1fr 1fr; /* Two columns on desktop */
+  grid-template-columns: 1fr 1fr; 
   gap: 25px 30px;
   font-family: "Segoe UI", Tahoma, sans-serif;
 }
@@ -96,7 +96,6 @@
   text-align: center;
 }
 
-/* Responsive for smaller screens */
 @media (max-width: 768px) {
   .user-form {
     grid-template-columns: 1fr;

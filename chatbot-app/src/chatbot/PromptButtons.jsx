@@ -9,7 +9,6 @@
     ];
 
     const handlePromptClick = (query) => {
-      // Trigger the action provider's handleDefault method
       if (actionProvider && actionProvider.handleDefault) {
         actionProvider.handleDefault(query);
       }

@@ -74,7 +74,7 @@
   border: 1px solid #e2e8f0;
 }
 
-/* Mobile responsiveness */
+
 @media (max-width: 768px) {
   .stats-row {
     flex-direction: column;

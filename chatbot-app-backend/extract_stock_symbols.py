@@ -3,7 +3,7 @@ import requests
 import re
 
 def extract_stock_names(text: str):
-    return re.findall(r'\b[A-Z]{1,5}\b', text)
+    return re.findall(r'\b[A-Z]{4,5}\b', text)
 
 import requests
 
@@ -13,4 +13,4 @@ def get_symbol_from_name(name: str):
     url = f"https://finnhub.io/api/v1/search?q={name}&token={API_KEY}"
     resp = requests.get(url).json()
     if resp["result"]:
-        print(resp["result"][0]["symbol"])  # e.g., AAPL
+        print(resp["result"][0]["symbol"]) 

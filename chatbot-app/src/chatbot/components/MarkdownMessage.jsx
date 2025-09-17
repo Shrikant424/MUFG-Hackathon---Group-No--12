@@ -10,13 +10,12 @@ const MarkdownMessage = (props) => {
       <ReactMarkdown 
         remarkPlugins={[remarkGfm]}
         components={{
-          // Customize paragraph rendering to avoid extra spacing
+      
           p: ({ children }) => <span>{children}</span>,
-          // Ensure proper bold rendering
+ 
           strong: ({ children }) => <strong>{children}</strong>,
-          // Handle other markdown elements as needed
+       
           em: ({ children }) => <em>{children}</em>,
-          // Handle line breaks properly
           br: () => <br />,
         }}
       >

@@ -51,7 +51,6 @@ const StockPredictionChart = () => {
 
       const data = await response.json();
       
-      // Format data for Chart.js
       const formattedData = {
         labels: [...data.historical_dates, ...data.future_dates],
         datasets: [

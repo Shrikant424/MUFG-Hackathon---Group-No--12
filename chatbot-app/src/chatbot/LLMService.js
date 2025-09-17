@@ -23,7 +23,6 @@ export async function callLLM1(userMessage, userData = {}) {
 
 
 export async function callLLM2(userMessage, userData = {}) {
-  //MISTRAL LLM
   try {
     const response = await fetch("http://127.0.0.1:8000/explain", {
       method: "POST",
@@ -46,7 +45,6 @@ export async function callLLM2(userMessage, userData = {}) {
 }
 
 export async function callLLM3(userMessage, userData = {}) {
-  //MISTRAL LLM
   try {
     const response = await fetch("http://127.0.0.1:8000/llm3", {
       method: "POST",

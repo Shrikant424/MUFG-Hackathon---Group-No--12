@@ -29,23 +29,23 @@ class SuperannuationPredictor:
         try:
             logger.info("Starting model training...")
             
-            # Prepare features and targets
+           
             X, y_pension, y_return = self._prepare_features(data)
             
             if X.empty:
                 logger.error("No valid features found for training")
                 return {'error': 'No valid features for training'}
             
-            # Split data
+          
             X_train, X_test, y_pension_train, y_pension_test, y_return_train, y_return_test = train_test_split(
                 X, y_pension, y_return, test_size=0.2, random_state=42
             )
             
-            # Scale features
+           
             X_train_scaled = self.scaler.fit_transform(X_train)
             X_test_scaled = self.scaler.transform(X_test)
             
-            # Train pension amount prediction model
+           
             self.pension_model = GradientBoostingRegressor(
                 n_estimators=100,
                 learning_rate=0.1,
@@ -54,7 +54,7 @@ class SuperannuationPredictor:
             )
             self.pension_model.fit(X_train_scaled, y_pension_train)
             
-            # Train return prediction model
+           
             self.return_model = RandomForestRegressor(
                 n_estimators=100,
                 max_depth=8,
@@ -62,11 +62,11 @@ class SuperannuationPredictor:
             )
             self.return_model.fit(X_train_scaled, y_return_train)
             
-            # Evaluate models
+         
             pension_pred = self.pension_model.predict(X_test_scaled)
             return_pred = self.return_model.predict(X_test_scaled)
             
-            # Calculate metrics
+        
             self.model_metrics = {
                 'pension_model': {
                     'mae': mean_absolute_error(y_pension_test, pension_pred),
@@ -83,7 +83,7 @@ class SuperannuationPredictor:
             self.is_trained = True
             logger.info("Model training completed successfully")
             
-            # Save models
+     
             self._save_models()
             
             return {
@@ -99,8 +99,7 @@ class SuperannuationPredictor:
     
     def _prepare_features(self, data: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series, pd.Series]:
         """Prepare features and target variables"""
-        
-        # Define feature columns
+      
         numerical_features = [
             'Age', 'Annual_Income', 'Current_Savings', 'Retirement_Age_Goal',
             'Contribution_Amount', 'Years_Contributed', 'Annual_Return_Rate',
@@ -116,41 +115,32 @@ class SuperannuationPredictor:
             'Investment_Experience_Level', 'Pension_Type'
         ]
         
-        # Create feature matrix
         X = pd.DataFrame()
         
-        # Add numerical features
         for feature in numerical_features:
             if feature in data.columns:
                 X[feature] = pd.to_numeric(data[feature], errors='coerce')
         
-        # Encode categorical features
         for feature in categorical_features:
             if feature in data.columns:
                 if feature not in self.label_encoders:
                     self.label_encoders[feature] = LabelEncoder()
                     
-                # Handle missing values
                 feature_data = data[feature].fillna('Unknown')
                 
                 try:
                     X[feature] = self.label_encoders[feature].fit_transform(feature_data)
                 except ValueError:
-                    # Handle unseen categories
                     X[feature] = 0
         
-        # Create derived features
         X['Years_To_Retirement'] = X.get('Retirement_Age_Goal', 65) - X.get('Age', 35)
         X['Income_To_Savings_Ratio'] = X.get('Annual_Income', 1) / (X.get('Current_Savings', 1) + 1)
         X['Contribution_Rate'] = X.get('Contribution_Amount', 0) / (X.get('Annual_Income', 1) + 1)
         
-        # Fill missing values
         X = X.fillna(X.median())
         
-        # Store feature columns
         self.feature_columns = X.columns.tolist()
         
-        # Define target variables
         y_pension = pd.to_numeric(data.get('Projected_Pension_Amount', 0), errors='coerce').fillna(0)
         y_return = pd.to_numeric(data.get('Annual_Return_Rate', 0.05), errors='coerce').fillna(0.05)
         
@@ -163,32 +153,26 @@ class SuperannuationPredictor:
                 logger.warning("Model not trained, using fallback predictions")
                 return self._fallback_predictions(user_profile, investment_allocation)
             
-            # Convert user profile to feature vector
             features = self._profile_to_features(user_profile, investment_allocation)
             
             if features is None:
                 return self._fallback_predictions(user_profile, investment_allocation)
             
-            # Scale features
             features_scaled = self.scaler.transform([features])
             
-            # Make predictions
             predicted_pension = self.pension_model.predict(features_scaled)[0]
             predicted_return = self.return_model.predict(features_scaled)[0]
             
-            # Calculate additional metrics
             current_age = user_profile.get('age', 35)
             retirement_age = user_profile.get('retirement_age_goal', 65)
             years_to_retirement = max(1, retirement_age - current_age)
             current_balance = user_profile.get('current_savings', 50000)
             annual_income = user_profile.get('annual_income', 70000)
             
-            # Calculate scenarios
             scenarios = self._calculate_scenarios(
                 current_balance, annual_income, predicted_return, years_to_retirement
             )
             
-            # Calculate required contributions for goals
             contribution_analysis = self._analyze_contributions(
                 current_balance, annual_income, predicted_return, years_to_retirement
             )
@@ -214,7 +198,6 @@ class SuperannuationPredictor:
         try:
             features = []
             
-            # Map user profile to expected features
             feature_mapping = {
                 'Age': user_profile.get('age', 35),
                 'Annual_Income': user_profile.get('annual_income', 70000),
@@ -239,17 +222,16 @@ class SuperannuationPredictor:
                 'Country': {'Australia': 0, 'UK': 1, 'USA': 2, 'Canada': 3, 'Germany': 4}.get(user_profile.get('country', 'Australia'), 0),
                 'Employment_Status': {'Full-time': 0, 'Part-time': 1, 'Self-employed': 2, 'Unemployed': 3, 'Retired': 4}.get(user_profile.get('employment_status', 'Full-time'), 0),
                 'Risk_Tolerance': {'Low': 0, 'Medium': 1, 'High': 2}.get(user_profile.get('risk_tolerance', 'Medium'), 1),
-                'Contribution_Frequency': 0,  # Default
-                'Investment_Type': 0,  # Default
+                'Contribution_Frequency': 0,  
+                'Investment_Type': 0, 
                 'Marital_Status': {'Single': 0, 'Married': 1, 'Divorced': 2, 'Widowed': 3}.get(user_profile.get('marital_status', 'Single'), 0),
-                'Education_Level': 1,  # Default
-                'Health_Status': 1,  # Default
-                'Home_Ownership_Status': 1,  # Default
-                'Investment_Experience_Level': 1,  # Default
-                'Pension_Type': 1  # Default
+                'Education_Level': 1,  
+                'Health_Status': 1,  
+                'Home_Ownership_Status': 1, 
+                'Investment_Experience_Level': 1,  
+                'Pension_Type': 1 
             }
             
-            # Build feature vector in the same order as training
             feature_vector = []
             for col in self.feature_columns:
                 if col in feature_mapping:
@@ -307,7 +289,6 @@ class SuperannuationPredictor:
             'Cash': 0.01
         }
         
-        # Simplified volatility calculation (doesn't account for correlations)
         total_vol = 0
         total_allocation = 0
         
@@ -322,7 +303,7 @@ class SuperannuationPredictor:
                            expected_return: float, years: int) -> Dict:
         """Calculate different projection scenarios"""
         
-        annual_contribution = annual_income * 0.11  # Employer contribution
+        annual_contribution = annual_income * 0.11 
         
         scenarios = {}
         
@@ -336,7 +317,7 @@ class SuperannuationPredictor:
             
             scenarios[scenario] = {
                 'final_balance': fv,
-                'annual_retirement_income': fv * 0.04,  # 4% withdrawal rule
+                'annual_retirement_income': fv * 0.04,  
                 'return_assumption': scenario_return
             }
         
@@ -356,19 +337,17 @@ class SuperannuationPredictor:
                              expected_return: float, years: int) -> Dict:
         """Analyze required contributions for different retirement goals"""
         
-        # Define retirement income targets
-        income_replacement_targets = [0.6, 0.7, 0.8]  # 60%, 70%, 80% of current income
+        
+        income_replacement_targets = [0.6, 0.7, 0.8]  
         
         analysis = {}
         
         for target_pct in income_replacement_targets:
             target_annual_income = annual_income * target_pct
-            required_balance = target_annual_income / 0.04  # 4% withdrawal rule
+            required_balance = target_annual_income / 0.04  
             
-            # Calculate required annual contribution
             employer_contribution = annual_income * 0.11
             
-            # Calculate additional contribution needed
             fv_current = current_balance * ((1 + expected_return) ** years)
             fv_employer = employer_contribution * (((1 + expected_return) ** years - 1) / expected_return) if expected_return > 0 else employer_contribution * years
             
@@ -393,7 +372,6 @@ class SuperannuationPredictor:
     def _calculate_confidence(self, features: List[float]) -> Dict:
         """Calculate model confidence based on feature similarity to training data"""
         try:
-            # Simple confidence metric based on model performance
             pension_r2 = self.model_metrics.get('pension_model', {}).get('r2', 0.5)
             return_r2 = self.model_metrics.get('return_model', {}).get('r2', 0.5)
             
@@ -422,11 +400,11 @@ class SuperannuationPredictor:
         current_balance = user_profile.get('current_savings', 50000)
         annual_income = user_profile.get('annual_income', 70000)
         
-        # Use simple compound interest calculation
+       
         annual_contribution = annual_income * 0.11
-        expected_return = 0.07  # Conservative assumption
+        expected_return = 0.07  
         
-        # Calculate future value
+      
         final_balance = self._future_value_with_payments(
             current_balance, annual_contribution, expected_return, years_to_retirement
         )
@@ -484,7 +462,7 @@ class SuperannuationPredictor:
                     'avg_importance': (pension_importance + return_importance) / 2
                 })
             
-            # Sort by average importance
+           
             importance_data.sort(key=lambda x: x['avg_importance'], reverse=True)
             
             return {
@@ -549,21 +527,20 @@ class SuperannuationPredictor:
     def evaluate_portfolio(self, user_profile: Dict, allocation: Dict) -> Dict:
         """Evaluate a specific portfolio allocation for the user"""
         
-        # Calculate expected return and risk
+        
         expected_return = self._estimate_return_from_allocation(allocation)
         volatility = self._estimate_volatility_from_allocation(allocation)
         
-        # Risk-adjusted return (Sharpe ratio approximation)
-        risk_free_rate = 0.025  # Approximate cash rate
+        risk_free_rate = 0.025  
         sharpe_ratio = (expected_return - risk_free_rate) / volatility if volatility > 0 else 0
         
-        # Age-based risk appropriateness
+      
         age = user_profile.get('age', 35)
         years_to_retirement = user_profile.get('retirement_age_goal', 65) - age
         
-        # Calculate risk score (0-100)
+        
         if years_to_retirement > 20:
-            target_volatility = 0.15  # Can handle higher risk
+            target_volatility = 0.15  
         elif years_to_retirement > 10:
             target_volatility = 0.12
         else:

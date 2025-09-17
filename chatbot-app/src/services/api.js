@@ -115,7 +115,6 @@ export const sendChatMessage = async (message, userProfile = null, conversationH
   });
 };
 
-// Recommendations APIs - UPDATED VERSION
 
 // Predictions APIs
 export const getPredictions = async (userProfile, investmentAllocation) => {

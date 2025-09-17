@@ -110,13 +110,11 @@ from fastapi import FastAPI
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # --- Startup ---
     init_db()
     print("Database initialized.")
 
-    yield  # 👈 app runs here
+    yield  
 
-    # --- Shutdown ---
     print("App shutting down...")
 
 # --- Models ---
@@ -159,13 +157,12 @@ class UserProfile(BaseModel):
 app = FastAPI(lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],  # React dev server (Vite)
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],  
     allow_credentials=True,
-    allow_methods=["*"],   # allow POST, GET, OPTIONS etc.
+    allow_methods=["*"], 
     allow_headers=["*"],
 )
 
-# Load the ML model once at startup
 try:
     model_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'Share_Prediction.h5')
     stock_model = load_model(model_path)
@@ -184,7 +181,6 @@ class PredictionRequest(BaseModel):
 
 @app.post("/chat")
 def chat(request: ChatMessage):
-    # If user asks for profile or to show data, return userData directly
     msg = request.message.lower().strip()
     if msg in ["profile", "show my data", "show my profile","profile","my profile","show profile","show me my profile","who am i","whoami"]:
         if request.userData:
@@ -192,18 +188,13 @@ def chat(request: ChatMessage):
             return {"reply": f"Your profile:\n{profile_str}"}
         else:
             return {"reply": "No user profile data found."}
-    
-    # Get username from userData if available
     username = request.userData.get("username") if request.userData else None
     
-    # Call LLM1 to get the main response
     llm1_response = callLLM1(request.message, request.userData, username)
     
-    # Call LLM3 to extract stock symbols and get predictions
     from LLM.LLM3 import callLLM3
     llm3_result = callLLM3(userMessage=request.message, userData=request.userData)
     
-    # Return both responses
     return {
         "reply": llm1_response,
         "stock_analysis": llm3_result if llm3_result and llm3_result.get("stock_symbol") else None
@@ -227,7 +218,6 @@ def get_stock_data(symbol, start_date, end_date):
         ticker = yf.Ticker(symbol)
         data = ticker.history(start=start_date, end=end_date)
         
-        # Check if data is empty or invalid
         if data.empty:
             raise HTTPException(status_code=404, detail=f"No data found for symbol '{symbol}'. Symbol may be invalid or delisted.")
             
@@ -255,7 +245,6 @@ def predict_future_years_realistic(model, stock_data, scaler, years=2, lookback_
     predictions = []
     current_sequence = last_sequence_scaled.flatten()
     
-    # Calculate historical volatility
     historical_returns = np.diff(np.log(stock_data['Close'].values[-252:]))
     daily_volatility = np.std(historical_returns)
     
@@ -264,7 +253,6 @@ def predict_future_years_realistic(model, stock_data, scaler, years=2, lookback_
         next_pred_scaled = model.predict(input_sequence, verbose=0)
         next_pred = scaler.inverse_transform(next_pred_scaled)[0][0]
         
-        # Add realistic volatility
         if i > 0:
             random_return = np.random.normal(0, daily_volatility)
             volatility_adjustment = next_pred * random_return
@@ -283,17 +271,14 @@ def predict_future_years_realistic(model, stock_data, scaler, years=2, lookback_
 
 @app.post("/predict-stock")
 async def predict_stock(request: PredictionRequest):
-    # Always return 200 OK with error message in JSON if anything fails
     if stock_model is None:
         return {"error": True, "message": "Stock prediction model not loaded"}
 
-    # Validate stock symbol
     symbol = request.symbol.upper().strip()
     if not symbol or len(symbol) < 2 or len(symbol) > 5 or not symbol.isalpha():
         return {"error": True, "message": f"Invalid stock symbol: {request.symbol}"}
 
     try:
-        # Fetch historical data
         current_date = datetime.now()
         start_date = (current_date - timedelta(days=3*365 + 120)).strftime("%Y-%m-%d")
         end_date = current_date.strftime("%Y-%m-%d")
@@ -303,15 +288,12 @@ async def predict_stock(request: PredictionRequest):
         if stock_data.empty:
             return {"error": True, "message": "No data found for the given symbol"}
 
-        # Prepare data
         scaler = prepare_data(stock_data)
 
-        # Make predictions
         future_dates, future_predictions = predict_future_years_realistic(
             stock_model, stock_data, scaler, request.years
         )
 
-        # Get historical data for chart (last 2 years)
         historical_cutoff = datetime.now() - timedelta(days=730)
         if stock_data.index.tz is not None:
             historical_cutoff = historical_cutoff.replace(tzinfo=stock_data.index.tz)
@@ -320,18 +302,15 @@ async def predict_stock(request: PredictionRequest):
         historical_dates = stock_data.index[historical_mask]
         historical_prices = stock_data['Close'].values[historical_mask]
 
-        # Calculate uncertainty bands
         prediction_std = np.std(np.diff(future_predictions)) * np.sqrt(np.arange(len(future_predictions)))
         uncertainty_upper = future_predictions + prediction_std
         uncertainty_lower = future_predictions - prediction_std
 
-        # Calculate statistics
         current_price = stock_data['Close'].iloc[-1]
         final_price = future_predictions[-1]
         total_return = ((final_price - current_price) / current_price) * 100
         annualized_return = (((final_price / current_price) ** (1/request.years)) - 1) * 100
 
-        # Calculate volatility and max drawdown
         daily_returns = np.diff(future_predictions) / future_predictions[:-1]
         predicted_volatility = np.std(daily_returns) * np.sqrt(252) * 100
 
@@ -357,7 +336,6 @@ async def predict_stock(request: PredictionRequest):
         }
 
     except HTTPException as he:
-        # Custom error from get_stock_data
         return {"error": True, "message": str(he.detail)}
     except Exception as e:
         return {"error": True, "message": f"Prediction failed: {str(e)}"}
@@ -420,8 +398,6 @@ def save_profile(username: str, profile: UserProfile):
 
     conn = get_db()
     cursor = conn.cursor(dictionary=True)
-
-    # Check if user exists in 'users' table
     cursor.execute("SELECT * FROM users WHERE username=%s", (username,))
     user_exists = cursor.fetchone()
     if not user_exists:
@@ -429,12 +405,10 @@ def save_profile(username: str, profile: UserProfile):
         conn.close()
         raise HTTPException(status_code=400, detail="User does not exist.")
 
-    # Check if profile exists
     cursor.execute("SELECT * FROM profiles WHERE username=%s", (username,))
     profile_exists = cursor.fetchone()
 
     if profile_exists:
-        # Update
         cursor.execute("""
             UPDATE profiles SET name=%s, age=%s, gender=%s, occupation=%s, annualIncome=%s,
             retirementAgeGoal=%s, riskTolerance=%s, investmentKnowledge=%s, financialGoals=%s,
@@ -498,21 +472,17 @@ def store_chat_history(username: str, chat_history: ChatHistory):
         conn = get_db()
         cursor = conn.cursor()
 
-        # MySQL JSON column accepts Python dict/list if converted to JSON string
         context_json = json.dumps(chat_history.context)
 
-        # Check if user already has a row
         cursor.execute("SELECT username FROM chat_history WHERE username = %s", (username,))
         row = cursor.fetchone()
 
         if row:
-            # Update existing row
             cursor.execute(
                 "UPDATE chat_history SET context = %s WHERE username = %s",
                 (context_json, username)
             )
         else:
-            # Insert new row
             cursor.execute(
                 "INSERT INTO chat_history (username, context) VALUES (%s, %s)",
                 (username, context_json)
@@ -546,10 +516,8 @@ def get_quote():
     return {"quote": "No quote available", "author": ""}
 
 
-# Initialize the ML model at startup (add this after existing model loading)
 superannuation_predictor = SuperannuationPredictor()
 
-# Try to load pre-trained models
 try:
     if superannuation_predictor.load_models():
         print("Superannuation ML models loaded successfully")
@@ -558,7 +526,6 @@ try:
 except Exception as e:
     print(f"Error loading superannuation models: {e}")
 
-# New Pydantic models for ML predictions
 class SuperannuationProfile(BaseModel):
     age: int
     annual_income: float
@@ -579,14 +546,12 @@ class InvestmentAllocation(BaseModel):
     property_reits: float = 0.05
     cash: float = 0.0
 
-# New API endpoint for ML predictions
 @app.post("/api/superannuation-predictions")
 async def get_superannuation_predictions(
     profile: SuperannuationProfile,
     allocation: InvestmentAllocation = None
 ):
     try:
-        # Default allocation based on risk tolerance if not provided
         if allocation is None:
             if profile.risk_tolerance.lower() == "high":
                 allocation_dict = {
@@ -625,7 +590,6 @@ async def get_superannuation_predictions(
                 "Cash": allocation.cash
             }
         
-        # Convert profile to dict format expected by ML model
         user_profile = {
             "age": profile.age,
             "annual_income": profile.annual_income,
@@ -639,17 +603,14 @@ async def get_superannuation_predictions(
             "dependents": profile.dependents
         }
         
-        # Get predictions from ML model
         predictions = superannuation_predictor.predict_future_value(
             user_profile, allocation_dict
         )
         
-        # Get portfolio evaluation
         portfolio_evaluation = superannuation_predictor.evaluate_portfolio(
             user_profile, allocation_dict
         )
         
-        # Get feature importance if available
         feature_importance = superannuation_predictor.get_feature_importance()
         
         return {
@@ -668,7 +629,6 @@ async def get_superannuation_predictions(
             "message": "Failed to generate predictions. Please try again."
         }
 
-# Enhanced profile endpoint that returns ML-ready data
 @app.get("/api/profile-with-predictions/{username}")
 async def get_profile_with_predictions(username: str):
     try:
@@ -681,7 +641,6 @@ async def get_profile_with_predictions(username: str):
         if not profile:
             return {"profile": {}, "predictions": None}
         
-        # Generate predictions if profile exists
         superannuation_profile = SuperannuationProfile(
             age=profile.get('age', 30),
             annual_income=profile.get('annualIncome', 50000),
@@ -707,7 +666,6 @@ async def get_profile_with_predictions(username: str):
         logging.error(f"Error getting profile with predictions: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# Training endpoint (optional - for retraining the model)
 @app.post("/api/train-model")
 async def train_model(training_data: dict = None):
     """
@@ -718,10 +676,8 @@ async def train_model(training_data: dict = None):
         if not training_data:
             return {"error": "No training data provided"}
         
-        # Convert training data to DataFrame
         df = pd.DataFrame(training_data)
         
-        # Train the model
         training_results = superannuation_predictor.train(df)
         
         return {

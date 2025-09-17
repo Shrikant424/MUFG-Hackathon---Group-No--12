@@ -69,7 +69,6 @@ const UserDataForm = ({ setFormData, username }) => {
       setMessage("Profile saved successfully!");
       setFormData(formState);
       
-      // Redirect to dashboard after successful save
       setTimeout(() => {
         navigate("/dashboard");
       }, 1500);

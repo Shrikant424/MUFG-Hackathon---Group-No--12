@@ -26,15 +26,12 @@ class ActionProvider {
 
 async extractStockSymbolsFromText(text, userData = {}) {
   try {
-    // Call LLM3 for dynamic detection with correct parameters
     const symbol = await callLLM3(text, userData);
 
-    // Check if the response is valid and not an error message
     if (symbol && symbol !== "NONE" && !symbol.includes("Sorry") && !symbol.includes("⚠️")) {
       return symbol;
     }
 
-    // Fallback to static mapping + regex
     const stockMappings = {
       'apple': 'AAPL',
       'google': 'GOOGL',
@@ -85,14 +82,12 @@ async extractStockSymbolsFromText(text, userData = {}) {
 
       const predictionData = await response.json();
       
-      // Check if there's an error in the response
       if (predictionData.error) {
         const errorMessage = this.createChatBotMessage(`📊 ${predictionData.message || predictionData.error}`);
         this.addMessage(errorMessage);
         return;
       }
       
-      // Add stock chart widget message
       const stockMessage = this.createChatBotMessage(`📈 Stock Analysis for ${stockSymbol}`, {
         widget: "stockChart",
         payload: { 
@@ -112,7 +107,6 @@ async extractStockSymbolsFromText(text, userData = {}) {
   }
 
   async handleStockPrediction(stockSymbol, years = 2) {
-    // Add a simple test message with widget
     const message = this.createChatBotMessage(`📈 Stock Analysis for ${stockSymbol}`, {
       widget: "stockChart",
       payload: { 
@@ -125,7 +119,6 @@ async extractStockSymbolsFromText(text, userData = {}) {
   }
 
   async handleRiskAnalysis(userMessage) {
-    // Add loading message
     this.setState((prev) => ({
       ...prev,
       messages: [...prev.messages, this.createChatBotMessage("🔍 Analyzing...")],
@@ -144,7 +137,6 @@ async extractStockSymbolsFromText(text, userData = {}) {
     try {
       const data = await callLLM1(userMessage, userData);
       
-      // Update the loading message with LLM1 response
       let currentMessages = [];
       this.setState((prev) => {
         const messages = [...prev.messages];
@@ -152,11 +144,10 @@ async extractStockSymbolsFromText(text, userData = {}) {
           widget: "markdownMessage",
           payload: { message: data }
         });
-        currentMessages = messages; // Store messages for use outside setState
+        currentMessages = messages; 
         return { ...prev, messages };
       });
 
-      // Check if LLM1 response contains stock symbols
       const stockSymbol = await this.extractStockSymbolsFromText(data, userData);
       if (stockSymbol) {
         console.log(`Found stock symbol ${stockSymbol}, generating prediction...`);
@@ -182,7 +173,6 @@ async extractStockSymbolsFromText(text, userData = {}) {
       messages: [...prev.messages, this.createChatBotMessage("🔍 Analyzing...")],
     }));
 
-    // Get latest userData from state before making API call
     let userData = {};
     await new Promise((resolve) => {
       this.setState((prev) => {
@@ -195,7 +185,6 @@ async extractStockSymbolsFromText(text, userData = {}) {
     try {
       const data = await callLLM2(userMessage, userData);
       
-      // Update the loading message with LLM2 response
       this.setState((prev) => {
         const messages = [...prev.messages];
         messages[messages.length - 1] = this.createChatBotMessage("", {
@@ -205,12 +194,10 @@ async extractStockSymbolsFromText(text, userData = {}) {
         return { ...prev, messages };
       });
 
-      // Check if LLM2 response contains stock symbols
       const stockSymbol = await this.extractStockSymbolsFromText(data, userData);
       if (stockSymbol) {
         console.log(`Found stock symbol ${stockSymbol} in LLM2 response, generating prediction...`);
         
-        // Add a brief delay to let the LLM2 response render first
         setTimeout(() => {
           this.handleStockPredictionFromAPI(stockSymbol, 2);
         }, 1000);
@@ -253,26 +240,18 @@ async extractStockSymbolsFromText(text, userData = {}) {
       try {
         extractedObj = JSON.parse(llmExtracted);
       } catch (e) {
-        // Not a valid JSON, skip
       }
       if (Object.keys(extractedObj).length > 0) {
         this.updateUserInfo(extractedObj);
-        // Merge new fields into userData for next step
         userData = { ...userData, ...extractedObj };
       }
     } catch (e) {
-      // Ignore extraction errors
     }
-
-    // 2. If the message is a query (not just info update), call LLM1
-    // Simple intent check: if message is exactly 'profile', 'show my data', or 'show my profile', skip LLM1
     const msg = userMessage.toLowerCase().trim();
     if (["profile", "show my data","show me my profile", "show my profile","who am i"].includes(msg)) {
-      // Already handled by backend, do nothing here
       return;
     }
 
-    // Otherwise, call LLM1 for advice
     this.setState((prev) => ({
       ...prev,
       messages: [...prev.messages, this.createChatBotMessage("🔍 Analyzing...")],

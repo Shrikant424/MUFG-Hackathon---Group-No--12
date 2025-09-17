@@ -92,20 +92,14 @@ def callLLM1(userMessage: str, userData: dict, username: str = None):
     else:
         user_profile_section = "\\n\\nUser Profile: (not provided)\\n"
 
-    # Add user profile to the system prompt
     full_prompt = prompt + user_profile_section
 
-    # Auto-get username if not provided
     if not username:
         username = getpass.getuser()
         print(f"[callLLM1] Auto-detected username: {username}")
-    # Always use DB for context
     context_messages = context_manager.get_context_for_llm(username, max_messages=10)
-    # Add user message to context
     result_user = context_manager.add_message(username, "user", userMessage)
-    # print(f"[callLLM1] User message DB update result: {result_user}")
 
-    # Build messages for LLM
     messages = [{"role": "system", "content": full_prompt}]
     messages.extend(context_messages)
     messages.append({"role": "user", "content": userMessage})
@@ -117,56 +111,8 @@ def callLLM1(userMessage: str, userData: dict, username: str = None):
 
     assistant_reply = response.choices[0].message.content
     
-    # Save assistant response to context
     result_assistant = context_manager.add_message(username, "assistant", assistant_reply)
 
     return assistant_reply
 
-
-# async def callLLM1(userMessage: str, userData: dict, contextMessages: list = None):
-#     """
-#     Call LLM1 with proper message context
-    
-#     Args:
-#         userMessage: Current user message
-#         userData: User profile data
-#         contextMessages: List of previous messages in OpenAI format [{"role": "user/assistant", "content": "..."}]
-#     """
-#     try:
-#         client = OpenAI(
-#             base_url="https://openrouter.ai/api/v1",
-#             api_key="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",
-#         )
-
-#         # Format user profile for prompt
-#         if userData:
-#             user_profile_str = "\n".join([f"{k}: {v}" for k, v in userData.items()])
-#             user_profile_section = f"\n\nUser Profile:\n{user_profile_str}\n"
-#         else:
-#             user_profile_section = "\n\nUser Profile: (not provided)\n"
-
-#         # Build messages array
-#         messages = [{"role": "system", "content": prompt + user_profile_section}]
-        
-#         # Add context messages if provided
-#         if contextMessages:
-#             # Limit context to prevent token overflow (last 12 messages)
-#             recent_context = contextMessages[-12:] if len(contextMessages) > 12 else contextMessages
-#             messages.extend(recent_context)
-        
-#         # Add current user message
-#         messages.append({"role": "user", "content": userMessage})
-
-#         response = client.chat.completions.create(
-#             model="deepseek/deepseek-r1-0528-qwen3-8b",
-#             messages=messages
-#         )
-
-#         assistant_reply = response.choices[0].message.content
-#         print(f"LLM1 Response generated (context messages: {len(contextMessages) if contextMessages else 0})")
-#         return assistant_reply
-        
-#     except Exception as e:
-#         print(f"Error in callLLM1: {e}")
-#         raise e
 
